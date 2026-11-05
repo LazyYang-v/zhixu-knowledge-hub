@@ -1,0 +1,95 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Noto+Sans+SC:wght@400;450;500;600;700&display=swap");
+
+:root {
+  /* 品牌色板 */
+  --brand-50: #f2effd;
+  --brand-100: #e7e2fa;
+  --brand-200: #cfc4f4;
+  --brand-300: #b0a0ec;
+  --brand-400: #927fe0;
+  --brand-500: #7058e8;
+  --brand-600: #6148d0;
+  --brand-700: #523ab0;
+  --brand-tint: #f2effd;
+  --brand-tint-strong: #e7e2fa;
+
+  /* 深色侧栏 */
+  --sidebar-bg: #151a2b;
+  --sidebar-bg-hover: #1e2438;
+  --sidebar-bg-active: #2a2f45;
+  --sidebar-border: #2c3149;
+  --sidebar-text: #b6b9cd;
+  --sidebar-text-strong: #e8e9f1;
+  --sidebar-text-muted: #8189a3;
+
+  /* 中性色 */
+  --color-bg: #f7f8fc;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1f2f8;
+  --color-text: #20263a;
+  --color-text-secondary: #5a6076;
+  --color-text-muted: #8b90a2;
+  --color-border: #e8eaf1;
+  --color-border-strong: #d9dce7;
+
+  /* 状态色 */
+  --color-success: #18a87c;
+  --color-success-bg: #e4f7ef;
+  --color-warning: #d18f1f;
+  --color-warning-bg: #fdf3e0;
+  --color-danger: #d9535f;
+  --color-danger-bg: #fdeaec;
+  --color-info: #3e7bd6;
+  --color-info-bg: #e9f1fc;
+
+  /* 圆角：卡片 12–16px */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* 控件高度：36–40px */
+  --control-h-sm: 32px;
+  --control-h: 36px;
+  --control-h-lg: 40px;
+
+  /* 间距：8px 基础 */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --page-padding: 24px;
+
+  /* 动画时长：150–220ms */
+  --duration-fast: 150ms;
+  --duration-base: 180ms;
+  --duration-slow: 220ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(32, 38, 58, 0.06);
+  --shadow-md: 0 4px 16px rgba(32, 38, 58, 0.08);
+  --shadow-lg: 0 12px 40px rgba(32, 38, 58, 0.14);
+  --shadow-brand: 0 3px 10px rgba(112, 88, 232, 0.18);
+
+  /* 字体 */
+  --font-sans: "Inter", "Noto Sans SC", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --sidebar-width: 232px;
+
+  /* 旧变量兼容别名（既有样式自动接入新色板） */
+  --purple: var(--brand-500);
+  --primary: var(--brand-500);
+  --purple-soft: var(--brand-tint);
+  --text: var(--color-text);
+  --muted: var(--color-text-muted);
+  --border: var(--color-border);
+  --surface: var(--color-surface);
+  --bg: var(--color-bg);
+  --green: var(--color-success);
+}

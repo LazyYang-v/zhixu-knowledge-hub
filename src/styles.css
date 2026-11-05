@@ -1,27 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700;750&family=Noto+Sans+SC:wght@400;450;500;550;600;650;700&display=swap");
+@import "./styles/tokens.css";
+@import "./styles/components.css";
 
 :root {
-  font-family:
-    "DM Sans",
-    "Noto Sans SC",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  color: #252a3c;
-  background: #f5f6fa;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
   font-synthesis: none;
   font-weight: 400;
-  --purple: #7656e9;
-  --primary: #7656e9;
-  --purple-soft: #f0ebff;
-  --text: #252a3c;
-  --muted: #8b90a2;
-  --border: #eaebf2;
-  --surface: #fff;
-  --bg: #f5f6fa;
-  --green: #20a77c;
-  --sidebar-width: 222px;
 }
 * {
   box-sizing: border-box;
@@ -61,15 +46,15 @@ button {
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #b9a7ff;
+  outline: 3px solid var(--brand-300);
   outline-offset: 3px;
 }
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: #9d82f5;
-  box-shadow: 0 0 0 3px #7656e911;
+  border-color: var(--brand-400);
+  box-shadow: 0 0 0 3px var(--brand-tint);
 }
 button svg {
   flex-shrink: 0;
@@ -95,7 +80,7 @@ button {
   background: none;
 }
 ::selection {
-  background: #e1d7ff;
+  background: var(--brand-tint-strong);
 }
 ::-webkit-scrollbar {
   width: 5px;
@@ -116,8 +101,8 @@ button {
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background: #171c2f;
-  color: #b6b9cd;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
   padding: 18px 16px 12px;
   display: flex;
   flex-direction: column;
@@ -163,15 +148,15 @@ button {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin: 14px 4px;
+  margin: 10px 4px;
   padding: 9px 10px;
-  border: 1px solid #34394d;
+  border: 1px solid var(--sidebar-border);
   border-radius: 8px;
 }
 .workspace-initial {
   width: 28px;
   height: 30px;
-  background: #31374b;
+  background: var(--sidebar-bg-active);
   border-radius: 5px;
   display: grid;
   place-items: center;
@@ -225,25 +210,25 @@ button {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 14px;
+  padding: 8px 14px;
   text-align: left;
   border-radius: 7px;
   font-size: 12.5px;
   letter-spacing: 0.2px;
   color: #b5bbce;
   margin-bottom: 2px;
-  height: 38px;
+  height: 36px;
 }
 .nav-item:hover {
-  background: #262b40;
+  background: var(--sidebar-bg-hover);
   color: white;
 }
 .nav-item.selected {
-  background: #7560c72b;
-  color: #d6c8ff;
+  background: var(--sidebar-bg-active);
+  color: var(--brand-200);
 }
 .nav-item.selected svg {
-  color: #b39aff;
+  color: var(--brand-300);
 }
 .nav-indicator {
   position: absolute;
@@ -251,11 +236,11 @@ button {
   width: 3px;
   height: 20px;
   border-radius: 0 2px 2px 0;
-  background: #a48aff;
+  background: var(--brand-300);
 }
 .nav-badge {
   margin-left: auto;
-  background: #34394e;
+  background: var(--sidebar-bg-active);
   border-radius: 4px;
   font-size: 10px;
   min-width: 20px;
@@ -264,7 +249,7 @@ button {
   color: #c5c8d8;
 }
 .nav-badge-ai {
-  background: #8061e5;
+  background: var(--brand-400);
   color: white;
   font-size: 9px;
 }
@@ -278,8 +263,8 @@ button {
   padding-top: 10px;
 }
 .storage-card {
-  border: 1px solid #343b52;
-  background: #232a40;
+  border: 1px solid var(--sidebar-border);
+  background: var(--sidebar-bg-hover);
   border-radius: 9px;
   padding: 11px;
 }
@@ -297,14 +282,14 @@ button {
 .storage-bar {
   height: 4px;
   border-radius: 3px;
-  background: #3e445c;
+  background: var(--sidebar-bg-active);
   margin-top: 10px;
   overflow: hidden;
 }
 .storage-bar > span {
   width: 57%;
   height: 100%;
-  background: #9b7cf5;
+  background: var(--brand-300);
   display: block;
   border-radius: 3px;
 }
@@ -337,6 +322,62 @@ button {
 .sidebar-status > span:last-child {
   margin-left: auto;
   color: #6e778f;
+}
+/* 短屏（常见笔记本）：侧栏在一屏内完整可见 */
+@media (max-height: 800px) {
+  .sidebar {
+    padding: 12px 14px 8px;
+  }
+  .brand-mark {
+    height: 30px;
+  }
+  .brand-mark svg {
+    width: 24px;
+    height: 24px;
+  }
+  .workspace-switch {
+    margin: 8px 2px;
+    padding: 7px 9px;
+  }
+  .workspace-initial {
+    width: 24px;
+    height: 26px;
+    font-size: 12px;
+  }
+  .nav-section-label {
+    margin-bottom: 5px;
+  }
+  .governance-label {
+    margin-top: 5px;
+    padding-top: 8px;
+  }
+  .nav-item {
+    height: 31px;
+    padding: 5px 14px;
+    font-size: 12px;
+  }
+  .sidebar-nav {
+    margin: 0 -14px;
+    padding: 0 14px;
+  }
+  .nav-indicator {
+    left: -14px;
+  }
+  .sidebar-bottom {
+    padding-top: 6px;
+  }
+  .storage-card {
+    padding: 8px 10px;
+  }
+  .storage-bar {
+    margin-top: 7px;
+  }
+  .storage-card p {
+    margin: 6px 0 0;
+  }
+  .sidebar-status {
+    margin: 6px 3px 0;
+  }
 }
 .main-shell {
   min-width: 0;
@@ -657,13 +698,13 @@ button {
   white-space: nowrap;
 }
 .btn-primary {
-  background: #7859e8;
+  background: var(--brand-500);
   color: white;
-  box-shadow: 0 3px 7px #7656e918;
+  box-shadow: var(--shadow-brand);
 }
 .btn-primary:hover {
-  background: #6747d6;
-  box-shadow: 0 4px 12px #7656e929;
+  background: var(--brand-600);
+  box-shadow: 0 4px 14px rgba(112, 88, 232, 0.28);
 }
 .btn-secondary {
   background: white;
@@ -671,9 +712,9 @@ button {
   color: #666d83;
 }
 .btn-secondary:hover {
-  border-color: #bba8ed;
+  border-color: var(--brand-200);
   background: #fcfbff;
-  color: #7656e9;
+  color: var(--brand-500);
 }
 .btn-danger {
   color: white;
@@ -854,7 +895,7 @@ button {
   position: relative;
 }
 .tab.active {
-  color: #7656e9;
+  color: var(--brand-500);
 }
 .tab.active:after {
   content: "";
@@ -863,7 +904,7 @@ button {
   left: 0;
   right: 0;
   height: 2px;
-  background: #7656e9;
+  background: var(--brand-500);
 }
 .modal-backdrop {
   position: fixed;
@@ -1248,7 +1289,7 @@ button {
     display: block;
     position: fixed;
     inset: 0;
-    background: #171c2f55;
+    background: rgba(21, 26, 43, 0.34);
     z-index: 29;
   }
   .brand {
