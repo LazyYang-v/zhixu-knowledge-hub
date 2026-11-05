@@ -48,75 +48,17 @@ import {
   type SearchDoc,
 } from "../features/retrieval/searchDocs";
 import type { KnowledgeVersion } from "../features/knowledge/types";
+import { usePermissions } from "../features/permissions/usePermissions";
+import { departments as permissionDepts, roles as permissionRoles, resources as permissionResources } from "../features/permissions/data";
+import type { Member } from "../features/permissions/types";
+import { useAudit } from "../features/audit/useAudit";
+import type { AuditLog } from "../features/audit/types";
+import { useEvaluation } from "../features/evaluation/useEvaluation";
+import type { EvaluationRun } from "../features/evaluation/types";
+import { datasets, evalRows } from "../features/evaluation/data";
+import { useSettings } from "../features/settings/useSettings";
 
 type KnowledgeVersionAlias = KnowledgeVersion;
-type Member = {
-  id?: string;
-  name: string;
-  email: string;
-  department: string;
-  role: string;
-};
-type EvaluationRun = {
-  id: string;
-  name: string;
-  dataset: string;
-  status: string;
-  createdAt: string;
-  metrics: {
-    hitRate: number;
-    accuracy: number;
-    latency: number;
-    coverage: number;
-  };
-  records: Array<{
-    id: string;
-    question: string;
-    expected: string;
-    kind: string;
-    hit: boolean;
-    score: number;
-    latency: number;
-  }>;
-};
-const seedMembers: Member[] = [
-  {
-    id: "m1",
-    name: "张三",
-    email: "zhangsan@company.com",
-    department: "研发部",
-    role: "知识库管理员",
-  },
-  {
-    id: "m2",
-    name: "李悦",
-    email: "liyue@company.com",
-    department: "人力资源部",
-    role: "内容编辑者",
-  },
-  {
-    id: "m3",
-    name: "王晨",
-    email: "wangchen@company.com",
-    department: "研发部",
-    role: "普通成员",
-  },
-  {
-    id: "m4",
-    name: "陈佳",
-    email: "chenjia@company.com",
-    department: "产品部",
-    role: "普通成员",
-  },
-];
-const departments = ["研发部", "人力资源部", "产品部", "财务部"];
-const roles = ["知识库管理员", "内容编辑者", "普通成员"];
-const resources = [
-  "企业制度知识库",
-  "技术文档知识库",
-  "项目资料知识库",
-  "常见问题知识库",
-];
 function Toggle({
   value,
   onChange,
@@ -150,50 +92,33 @@ function DemoNote({ children }: { children: string }) {
 
 export function PermissionsPage() {
   const notify = useToast();
-  const [tab, setTab] = useState("权限策略");
-  const [department, setDepartment] = useState("研发部");
-  const [role, setRole] = useState("普通成员");
-  const [members, setMembers] = useLocalStorage("members", seedMembers);
-  const [rules, setRules] = useLocalStorage<Record<string, boolean[]>>(
-    "permission-rules",
-    {},
-  );
-  const permissionsLoaded = useRef(false);
-  useEffect(() => {
-    if (permissionsLoaded.current) return;
-    permissionsLoaded.current = true;
-    apiFetch<{
-      members: Member[];
-      rules: Record<string, boolean[]>;
-    }>("/api/permissions").then((data) => {
-      if (data?.members.length) setMembers(data.members);
-      if (data && Object.keys(data.rules).length) setRules(data.rules);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [memberDept, setMemberDept] = useState("研发部");
-  const [memberRole, setMemberRole] = useState("普通成员");
-  const key = `${department}:${role}`;
-  const getPermissions = (index: number) =>
-    rules[`${key}:${index}`] ?? [
-      index !== 2 || department === "研发部",
-      role !== "普通成员",
-      role === "知识库管理员",
-      role === "知识库管理员",
-    ];
-  const togglePermission = (row: number, col: number) => {
-    const vals = [...getPermissions(row)];
-    vals[col] = !vals[col];
-    apiFetch("/api/permissions/rules", {
-      method: "PUT",
-      body: JSON.stringify({ key: `${key}:${row}`, values: vals }),
-    });
-    setRules({ ...rules, [`${key}:${row}`]: vals });
-    notify("权限策略已保存到当前浏览器");
-  };
+  const {
+    tab,
+    setTab,
+    members,
+    setMembers,
+    rules,
+    setRules,
+    adding,
+    setAdding,
+    name,
+    setName,
+    email,
+    setEmail,
+    memberDept,
+    setMemberDept,
+    memberRole,
+    setMemberRole,
+    department,
+    setDepartment,
+    role,
+    setRole,
+    getPermissions,
+    togglePermission,
+    addMember,
+    updateMemberRole,
+    removeMember,
+  } = usePermissions();
   return (
     <div className="page-content gp-page">
       <PageHeader
@@ -259,7 +184,7 @@ export function PermissionsPage() {
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                 >
-                  {departments.map((d) => (
+                  {permissionDepts.map((d) => (
                     <option key={d}>{d}</option>
                   ))}
                 </select>
@@ -269,7 +194,7 @@ export function PermissionsPage() {
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                 >
-                  {roles.map((r) => (
+                  {permissionRoles.map((r) => (
                     <option key={r}>{r}</option>
                   ))}
                 </select>
@@ -288,7 +213,7 @@ export function PermissionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {resources.map((r, i) => (
+                  {permissionResources.map((r, i) => (
                     <tr key={r}>
                       <td>
                         <span className="gp-resource">
@@ -370,7 +295,7 @@ export function PermissionsPage() {
                           notify("成员角色已更新");
                         }}
                       >
-                        {roles.map((r) => (
+                                {permissionRoles.map((r) => (
                           <option key={r}>{r}</option>
                         ))}
                       </select>
@@ -506,7 +431,7 @@ export function PermissionsPage() {
                   value={memberDept}
                   onChange={(e) => setMemberDept(e.target.value)}
                 >
-                  {departments.map((d) => (
+                  {permissionDepts.map((d) => (
                     <option key={d}>{d}</option>
                   ))}
                 </select>
@@ -518,7 +443,7 @@ export function PermissionsPage() {
                   value={memberRole}
                   onChange={(e) => setMemberRole(e.target.value)}
                 >
-                  {roles.map((r) => (
+                  {permissionRoles.map((r) => (
                     <option key={r}>{r}</option>
                   ))}
                 </select>
@@ -544,129 +469,19 @@ export function PermissionsPage() {
   );
 }
 
-type AuditLog = {
-  id: string;
-  time: string;
-  user: string;
-  department: string;
-  action: string;
-  content: string;
-  source: string;
-  status: string;
-  docs: string[];
-};
-const auditLogs: AuditLog[] = [
-  {
-    id: "AUD-1048",
-    time: "14:28:36",
-    user: "张三",
-    department: "研发部",
-    action: "智能问答",
-    content: "公司的员工年假制度是什么？",
-    source: "AI 知识助手",
-    status: "通过",
-    docs: [
-      "员工休假管理制度.pdf · 第 3 页 · chunk-028",
-      "人力资源管理手册.docx · 第 7–8 页 · chunk-146",
-    ],
-  },
-  {
-    id: "AUD-1047",
-    time: "14:21:09",
-    user: "李悦",
-    department: "人力资源部",
-    action: "文档发布",
-    content: "发布《员工休假管理制度》v3.0",
-    source: "文档中心",
-    status: "通过",
-    docs: ["员工休假管理制度.pdf · v3.0"],
-  },
-  {
-    id: "AUD-1046",
-    time: "14:15:42",
-    user: "王晨",
-    department: "研发部",
-    action: "检索请求",
-    content: "Q4 管理层薪酬方案",
-    source: "检索实验室",
-    status: "已拦截",
-    docs: [],
-  },
-  {
-    id: "AUD-1045",
-    time: "13:56:18",
-    user: "陈佳",
-    department: "产品部",
-    action: "智能问答",
-    content: "项目复盘文档应该如何归档？",
-    source: "AI 知识助手",
-    status: "通过",
-    docs: ["项目文档管理规范.md · chunk-092"],
-  },
-  {
-    id: "AUD-1044",
-    time: "13:42:01",
-    user: "张三",
-    department: "研发部",
-    action: "权限变更",
-    content: "更新技术文档知识库的编辑者权限",
-    source: "权限与组织",
-    status: "通过",
-    docs: ["技术文档知识库 · ACL policy-004"],
-  },
-  {
-    id: "AUD-1043",
-    time: "11:12:24",
-    user: "张三",
-    department: "研发部",
-    action: "智能问答",
-    content: "报销流程和所需材料？",
-    source: "AI 知识助手",
-    status: "通过",
-    docs: ["费用报销管理办法.pdf · 第 5 页 · chunk-063"],
-  },
-  {
-    id: "AUD-1042",
-    time: "10:35:47",
-    user: "李悦",
-    department: "人力资源部",
-    action: "文档上传",
-    content: "上传《2026 年员工培训计划》",
-    source: "文档中心",
-    status: "通过",
-    docs: ["2026 年员工培训计划.xlsx · v1.0"],
-  },
-];
 export function AuditPage() {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("全部操作");
-  const [status, setStatus] = useState("全部状态");
-  const [selected, setSelected] = useState<AuditLog | null>(null);
   const notify = useToast();
-  const [logs, setLogs] = useState<AuditLog[]>(auditLogs);
-  const logsLoaded = useRef(false);
-  useEffect(() => {
-    if (logsLoaded.current) return;
-    logsLoaded.current = true;
-    apiFetch<{ logs: AuditLog[] }>("/api/audit").then((data) => {
-      if (!data?.logs.length) return;
-      setLogs(
-        data.logs.map((log) => ({
-          ...log,
-          time: new Date(log.time).toLocaleTimeString("zh-CN", {
-            hour12: false,
-          }),
-          status: log.status === "正常" ? "通过" : "已拦截",
-        })),
-      );
-    });
-  }, []);
-  const filtered = logs.filter(
-    (log) =>
-      `${log.user}${log.content}${log.id}`.includes(query.trim()) &&
-      (filter === "全部操作" || log.action === filter) &&
-      (status === "全部状态" || log.status === status),
-  );
+  const {
+    query,
+    setQuery,
+    filter,
+    setFilter,
+    status,
+    setStatus,
+    selected,
+    setSelected,
+    filtered,
+  } = useAudit();
   const exportLogs = () => {
     const rows = [
       ["审计 ID", "时间", "用户", "部门", "操作", "内容", "结果"],
@@ -925,99 +740,32 @@ export function AuditPage() {
   );
 }
 
-const datasets = ["企业制度问答集", "技术文档问答集", "项目知识问答集"];
-const evalRows = [
-  ["员工的年假天数如何计算？", "员工休假管理制度.pdf", "0.97", "通过"],
-  ["费用报销需要准备哪些材料？", "费用报销管理办法.pdf", "0.94", "通过"],
-  ["新员工入职流程包括哪些步骤？", "新员工入职指引.docx", "0.96", "通过"],
-  ["离职后还能访问企业文档吗？", "信息安全管理规范.pdf", "0.88", "待优化"],
-];
 export function EvaluationPage() {
-  const [dataset, setDataset] = useState(datasets[0]);
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [runs, setRuns] = useLocalStorage("evaluation-runs", 0);
-  const [latest, setLatest] = useState<EvaluationRun | null>(null);
-  const evalLoaded = useRef(false);
-  useEffect(() => {
-    if (evalLoaded.current) return;
-    evalLoaded.current = true;
-    apiFetch<{ evaluations: EvaluationRun[] }>("/api/evaluations").then(
-      (data) => {
-        if (data?.evaluations.length) setLatest(data.evaluations[0]);
-      },
-    );
-  }, []);
-  const [selected, setSelected] = useState<string[] | null>(null);
   const notify = useToast();
+  const {
+    dataset,
+    setDataset,
+    running,
+    progress,
+    start,
+    runs,
+    latest,
+    hit,
+    accuracy,
+    latency,
+    samples,
+    selected,
+    setSelected,
+    datasets: evaluationDatasets,
+  } = useEvaluation();
   useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(
-      () => setProgress((p) => Math.min(p + 8, 100)),
-      150,
+    if (running || progress !== 100) return;
+    notify(
+      latest
+        ? "评测已完成，指标基于服务端真实检索结果计算"
+        : "模拟评测已完成，报告已更新",
     );
-    return () => clearInterval(timer);
-  }, [running]);
-  useEffect(() => {
-    if (!running || progress !== 100) return;
-    (async () => {
-      const data = await apiFetch<{ evaluation: EvaluationRun }>(
-        "/api/evaluations",
-        {
-          method: "POST",
-          body: JSON.stringify({ name: `质量评测 · ${dataset}`, dataset }),
-        },
-      );
-      if (data?.evaluation) setLatest(data.evaluation);
-      setRunning(false);
-      setRuns((n) => n + 1);
-      notify(
-        data?.evaluation
-          ? "评测已完成，指标基于服务端真实检索结果计算"
-          : "模拟评测已完成，报告已更新",
-      );
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, progress, setRuns, notify]);
-  const base =
-    dataset === datasets[0] ? 96.8 : dataset === datasets[1] ? 94.2 : 93.6;
-  const hit = latest
-    ? (latest.metrics.hitRate * 100).toFixed(1)
-    : (base + Math.min(runs, 5) * 0.1).toFixed(1);
-  const samples =
-    latest?.records.length
-      ? latest.records.map((r) => [
-          r.question,
-          r.expected,
-          r.score.toFixed(2),
-          r.hit ? "通过" : "待优化",
-        ])
-      :
-    dataset === datasets[0]
-      ? evalRows
-      : dataset === datasets[1]
-        ? [
-            ["如何配置服务的健康检查？", "微服务部署指南.md", "0.96", "通过"],
-            ["API 调用的限流阈值是多少？", "API 接口规范.md", "0.92", "通过"],
-            ["数据库迁移失败如何回滚？", "数据库运维手册.pdf", "0.94", "通过"],
-            ["跨区域容灾切换需要多久？", "服务高可用设计.md", "0.86", "待优化"],
-          ]
-        : [
-            ["项目复盘应包含哪些内容？", "项目复盘模板.docx", "0.95", "通过"],
-            [
-              "项目文档的归档期限是什么？",
-              "项目文档管理规范.md",
-              "0.94",
-              "通过",
-            ],
-            ["需求变更由谁审批？", "项目交付流程.pdf", "0.92", "通过"],
-            [
-              "历史项目资料如何申请访问？",
-              "项目权限规范.pdf",
-              "0.87",
-              "待优化",
-            ],
-          ];
+  }, [running, progress, latest, notify]);
   return (
     <div className="page-content gp-page">
       <PageHeader
@@ -1032,17 +780,14 @@ export function EvaluationPage() {
               aria-label="评测数据集"
               disabled={running}
             >
-              {datasets.map((d) => (
+              {evaluationDatasets.map((d) => (
                 <option key={d}>{d}</option>
               ))}
             </select>
             <button
               className="btn btn-primary"
               disabled={running}
-              onClick={() => {
-                setProgress(0);
-                setRunning(true);
-              }}
+              onClick={start}
             >
               <Play size={15} />
               {running ? `评测中 ${progress}%` : "运行评测"}
@@ -1071,9 +816,7 @@ export function EvaluationPage() {
         />
         <StatCard
           label="回答准确率"
-          value={`${
-            latest ? (latest.metrics.accuracy * 100).toFixed(1) : (base - 2.6).toFixed(1)
-          }%`}
+          value={`${accuracy}%`}
           detail="基于参考答案评分"
           trend="↑ 1.8%"
           icon={<CheckCircle2 size={18} />}
@@ -1081,16 +824,10 @@ export function EvaluationPage() {
         <StatCard
           label="平均响应延迟"
           value={
-            latest ? (
-              <>
-                {(latest.metrics.latency / 1000).toFixed(2)}
-                <span className="gp-unit">s</span>
-              </>
-            ) : (
-              <>
-                1.24<span className="gp-unit">s</span>
-              </>
-            )
+            <span>
+              {latency}
+              <span className="gp-unit">s</span>
+            </span>
           }
           detail="P95 延迟 2.18s"
           trend="↓ 0.16s"
@@ -1593,80 +1330,26 @@ export function RetrievalPage() {
   );
 }
 
-const defaultSettings = {
-  workspace: "企业知识工作空间",
-  tenant: "enterprise-001",
-  embedding: "bge-m3",
-  vector: "pgvector",
-  chunkSize: "512",
-  overlap: "64",
-  strategy: "父子分块",
-  topK: "5",
-  rerank: true,
-  citations: true,
-  multiTurn: true,
-  audit: true,
-};
 export function SettingsPage() {
-  const [saved, setSaved] = useLocalStorage("settings", defaultSettings);
-  const [form, setForm] = useState(saved);
-  const settingsLoaded = useRef(false);
-  useEffect(() => {
-    if (settingsLoaded.current) return;
-    settingsLoaded.current = true;
-    apiFetch<{ settings: typeof defaultSettings }>("/api/settings").then(
-      (data) => {
-        if (data?.settings) {
-          setSaved(data.settings);
-          setForm(data.settings);
-        }
-      },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const [tab, setTab] = useState("工作空间");
-  const [integration, setIntegration] = useState<string | null>(null);
   const notify = useToast();
-  const change = <K extends keyof typeof form>(
-    key: K,
-    value: (typeof form)[K],
-  ) => setForm((f) => ({ ...f, [key]: value }));
+  const {
+    tab,
+    setTab,
+    integration,
+    setIntegration,
+    form,
+    change,
+    save: saveSettings,
+  } = useSettings();
   const save = async () => {
-    if (!form.workspace.trim()) {
-      notify("请输入工作空间名称");
-      return;
-    }
-    const size = Number(form.chunkSize),
-      overlap = Number(form.overlap);
-    if (size < 64 || size > 4096 || overlap < 0 || overlap >= size) {
+    const result = await saveSettings();
+    if (result === "empty") notify("请输入工作空间名称");
+    else if (result === "range")
       notify("分块长度应为 64–4096，重叠长度应小于分块长度");
-      return;
-    }
-    const data = await apiFetch<{ settings: typeof defaultSettings }>(
-      "/api/settings",
-      { method: "PUT", body: JSON.stringify(form) },
-    );
-    if (data?.settings) {
-      setSaved(data.settings);
-      setForm(data.settings);
-      notify("配置已保存到服务器");
-      return;
-    }
-    setSaved(form);
-    try {
-      localStorage.setItem(
-        "knowledge-hub:citations",
-        JSON.stringify(form.citations),
-      );
-      localStorage.setItem(
-        "knowledge-hub:multi-turn",
-        JSON.stringify(form.multiTurn),
-      );
-    } catch {
+    else if (result === "server") notify("配置已保存到服务器");
+    else if (result === "offline") notify("后端不可用，配置已保存至当前浏览器");
+    else if (result === "no-storage")
       notify("浏览器存储不可用，配置仅在本次页面会话中生效");
-      return;
-    }
-    notify("后端不可用，配置已保存至当前浏览器");
   };
   return (
     <div className="page-content gp-page">
