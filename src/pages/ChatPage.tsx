@@ -37,12 +37,16 @@ import {
   X,
 } from "lucide-react";
 import { Badge, IconButton, Modal, useToast } from "../components/ui";
+import { Toggle } from "../components/ui/Toggle";
+import { useConversations } from "../features/chat/useConversations";
+import { useFeedback } from "../features/chat/useFeedback";
+import { sendMessageFlow } from "../features/chat/composer";
 import Markdown from "../components/Markdown";
 import { apiFetch } from "../lib/api";
+import { useLocalStorage } from "../lib/storage";
 import {
   answers,
   identifyAnswer,
-  initialConversations,
   sourceFor,
 } from "../lib/chat-data";
 import type {
@@ -52,35 +56,12 @@ import type {
   Message,
   RetrievalTrace,
 } from "../lib/chat-data";
-import { useLocalStorage } from "../lib/storage";
 import "./chat.css";
 
 type EvidenceTab = "source" | "retrieval" | "permission";
 const uid = () => crypto.randomUUID();
-function Toggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <button
-      className="toggle-label"
-      onClick={onChange}
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-    >
-      <span>{label}</span>
-      <span className={`switch ${checked ? "on" : ""}`}>
-        <i />
-      </span>
-    </button>
-  );
-}
+const nowTime = () =>
+  new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 export function FileIcon({ type = "pdf" }: { type?: string }) {
   return (
     <span className={`file-icon file-icon-${type}`}>
@@ -584,14 +565,15 @@ function EvidencePanel({
 }
 
 export default function ChatPage() {
-  const [conversations, setConversations] = useLocalStorage<Conversation[]>(
-    "conversations-v1",
-    initialConversations,
-  );
-  const [activeId, setActiveId] = useLocalStorage(
-    "active-conversation-v1",
-    "annual-leave",
-  );
+  const {
+    conversations,
+    setConversations,
+    activeId,
+    setActiveId,
+    loading,
+    loadSource,
+    addMessage,
+  } = useConversations();
   const [input, setInput] = useState("");
   const [scope, setScope] = useState("全部知识库");
   const [citations, setCitations] = useLocalStorage("citations", true);
@@ -611,10 +593,7 @@ export default function ChatPage() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   const [suggestionSet, setSuggestionSet] = useState(0);
-  const [feedback, setFeedback] = useLocalStorage<Record<string, string>>(
-    "answer-feedback",
-    {},
-  );
+  const { feedback, record: recordFeedback } = useFeedback();
   const [attachment, setAttachment] = useState("");
   const [historyVisible, setHistoryVisible] = useState(false);
   const toast = useToast();
@@ -710,104 +689,69 @@ export default function ChatPage() {
     if (!trimmed || busy) return;
     setInput("");
     setBusy(true);
-    const startedAt = Date.now();
-    const previous = [...messages].reverse().find((m) => m.kind)?.kind;
+
+    const ensureConversation = async () => {
+      const created = await apiFetch<{ conversation: Conversation }>(
+        "/api/conversations",
+        { method: "POST", body: JSON.stringify({ title: trimmed }) },
+      );
+      const conversationId = created?.conversation.id || uid();
+      const newConversationEntry: Conversation = {
+        id: conversationId,
+        title: created?.conversation.title || trimmed,
+        time: created?.conversation.time || nowTime(),
+        group: created?.conversation.group || "今天",
+        messages: [],
+      };
+      setConversations((prev) => [newConversationEntry, ...prev]);
+      setActiveId(conversationId);
+      return conversationId;
+    };
+
     try {
-      let conversationId = activeId;
-      if (!conversation) {
-        const created = await apiFetch<{ conversation: Conversation }>(
-          "/api/conversations",
-          { method: "POST", body: JSON.stringify({ title: trimmed }) },
-        );
-        if (!created) throw new Error("offline");
-        conversationId = created.conversation.id;
-        setConversations((prev) => [created.conversation, ...prev]);
-        setActiveId(conversationId);
-      }
-      const data = await apiFetch<{
-        userMessage: Message;
-        answerMessage: Message;
-        conversation: Conversation;
-      }>(`/api/conversations/${conversationId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({
-          content: trimmed,
-          scope,
-          citations,
-          multiTurn,
-        }),
+      const result = await sendMessageFlow({
+        question: trimmed,
+        scope,
+        citations,
+        multiTurn,
+        conversations,
+        activeId,
+        ensureConversation,
       });
-      if (!data) throw new Error("offline");
-      const elapsed = Date.now() - startedAt;
-      await new Promise((resolve) =>
-        setTimeout(resolve, Math.max(0, 650 - elapsed)),
-      );
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === data.conversation.id ? data.conversation : c,
-        ),
-      );
-      if (data.answerMessage.kind && data.answerMessage.kind !== "unknown") {
-        setSelectedKind(data.answerMessage.kind);
-        setSourceIndex(0);
-        setActiveRetrieval(data.answerMessage.retrieval);
+      const answer = result.answer;
+      if (answer) {
+        addMessage(result.conversationId, [
+          { id: uid(), role: "user", content: trimmed },
+          answer,
+        ]);
+        if (answer.kind && answer.kind !== "unknown") {
+          setSelectedKind(answer.kind);
+          setSourceIndex(0);
+          setActiveRetrieval(answer.retrieval);
+        }
       }
       setBusy(false);
     } catch {
       const kind = identifyAnswer(
         trimmed,
         scope,
-        multiTurn ? previous : undefined,
+        multiTurn
+          ? [...messages].reverse().find((m) => m.kind)?.kind
+          : undefined,
       );
-      const fallbackId = conversation ? activeId : uid();
+      const fallbackId = activeId || (await ensureConversation());
       const user: Message = { id: uid(), role: "user", content: trimmed };
-      if (!conversation) {
-        setConversations((prev) => [
-          {
-            id: fallbackId,
-            title: trimmed,
-            time: new Date().toLocaleTimeString("zh-CN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            group: "今天",
-            messages: [user],
-          },
-          ...prev,
-        ]);
-        setActiveId(fallbackId);
-      } else {
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === fallbackId
-              ? {
-                  ...c,
-                  title: c.messages.length ? c.title : trimmed,
-                  messages: [...c.messages, user],
-                }
-              : c,
-          ),
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 850));
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === fallbackId
-            ? {
-                ...c,
-                messages: [
-                  ...c.messages,
-                  {
-                    id: uid(),
-                    role: "assistant",
-                    content: answers[kind],
-                    kind,
-                    citations,
-                  },
-                ],
-              }
-            : c,
-        ),
+      const fallbackAnswer: Message = {
+        id: uid(),
+        role: "assistant",
+        content: answers[kind],
+        kind,
+        citations,
+      };
+      addMessage(
+        fallbackId,
+        [user, fallbackAnswer],
+        conversation?.messages.length ? conversation.title : trimmed,
       );
       setBusy(false);
     }
@@ -830,6 +774,11 @@ export default function ChatPage() {
       : ["报销需要哪些材料？", "新人入职需要准备什么？", "项目文档如何归档？"];
   return (
     <div className={`chat-workspace ${evidenceOpen ? "" : "evidence-hidden"}`}>
+      {loadSource === "offline" && (
+        <div className="offline-badge" role="status">
+          离线演示 · 正在使用本地数据
+        </div>
+      )}
       <aside
         className={`history-panel ${historyVisible ? "history-mobile-open" : ""}`}
       >
@@ -1105,19 +1054,7 @@ export default function ChatPage() {
                               feedback[m.id] === "up" ? "feedback-active" : ""
                             }
                             onClick={() => {
-                              const rating = feedback[m.id] === "up" ? "" : "up";
-                              if (rating)
-                                apiFetch(
-                                  `/api/conversations/${conversation?.id}/messages/${m.id}/feedback`,
-                                  {
-                                    method: "PATCH",
-                                    body: JSON.stringify({ rating: "up" }),
-                                  },
-                                );
-                              setFeedback((prev) => ({
-                                ...prev,
-                                [m.id]: rating,
-                              }));
+                              recordFeedback(conversation?.id, m.id, "up");
                               toast("感谢反馈，已在本地记录");
                             }}
                           >
@@ -1129,20 +1066,7 @@ export default function ChatPage() {
                               feedback[m.id] === "down" ? "feedback-active" : ""
                             }
                             onClick={() => {
-                              const rating =
-                                feedback[m.id] === "down" ? "" : "down";
-                              if (rating)
-                                apiFetch(
-                                  `/api/conversations/${conversation?.id}/messages/${m.id}/feedback`,
-                                  {
-                                    method: "PATCH",
-                                    body: JSON.stringify({ rating: "down" }),
-                                  },
-                                );
-                              setFeedback((prev) => ({
-                                ...prev,
-                                [m.id]: rating,
-                              }));
+                              recordFeedback(conversation?.id, m.id, "down");
                               toast("已记录反馈，我们会持续改进回答");
                             }}
                           >

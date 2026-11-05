@@ -2416,3 +2416,18 @@
 .document-paper {
   color: #524b5b;
 }
+/* 离线演示徽标 */
+.offline-badge {
+  position: fixed;
+  top: 10px;
+  right: 16px;
+  z-index: 60;
+  background: var(--warn-soft, #fff7e6);
+  color: var(--warn, #b25e00);
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  letter-spacing: 0.3px;
+  border: 1px solid rgba(178, 94, 0, 0.2);
+}
+
