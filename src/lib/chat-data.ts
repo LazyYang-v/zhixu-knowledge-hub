@@ -52,6 +52,7 @@ export interface RetrievalHit {
   dense: number;
   rerank: number;
   score: number;
+  [scoreKey: string]: number | string | undefined;
 }
 export interface RetrievalTrace {
   query: string;

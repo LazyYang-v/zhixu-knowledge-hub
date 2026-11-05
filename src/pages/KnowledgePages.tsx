@@ -43,6 +43,7 @@ import { useLocalStorage } from "../lib/storage";
 import { seedDocuments, seedBases } from "../features/knowledge/seed";
 import { useKnowledgeBases } from "../features/knowledge/useKnowledgeBases";
 import { useKnowledgeDocuments } from "../features/knowledge/useKnowledge";
+import { useTasks } from "../features/tasks/useTasks";
 import { versionNext } from "../features/knowledge/useKnowledge";
 import type { KnowledgeBase, KnowledgeDocument, KnowledgeVersion } from "../features/knowledge/types";
 import { DocIcon, statusTone } from "../features/knowledge/presenters";
@@ -1215,30 +1216,9 @@ function UploadModal({
 }
 
 export function TasksPage({ onNavigate }: PageProps) {
-  const { docs, setDocs } = useKnowledgeDocuments();
+  const { stages, allTasks, retry: runTaskRetry } = useTasks();
   const [filter, setFilter] = useState("全部任务");
-  const [failures, setFailures] = useLocalStorage("demo-task-failures", true);
   const toast = useToast();
-  const errorDoc: KnowledgeDocument = {
-    ...seedDocuments[0],
-    id: "failed-demo",
-    name: "历史采购合同扫描件.pdf",
-    task: "error",
-    stage: 0,
-    size: "12.6 MB",
-    status: "草稿",
-    chunks: ["该扫描件的识别结果将在接入 OCR 服务后生成。"],
-    versions: [
-      {
-        version: "v1.0",
-        date: today(),
-        note: "首次导入",
-        chunks: ["该扫描件的识别结果将在接入 OCR 服务后生成。"],
-      },
-    ],
-  };
-  const hasServerError = docs.some((d) => d.task === "error");
-  const allTasks = [...(failures && !hasServerError ? [errorDoc] : []), ...docs];
   const running = allTasks.filter((d) => d.task === "running").length;
   const errors = allTasks.filter((d) => d.task === "error").length;
   const visible = allTasks.filter(
@@ -1249,22 +1229,7 @@ export function TasksPage({ onNavigate }: PageProps) {
       (filter === "失败" && d.task === "error"),
   );
   const retry = (item: KnowledgeDocument) => {
-    if (item.id === "failed-demo") {
-      setFailures(false);
-      setDocs((current) => [
-        { ...item, id: crypto.randomUUID(), stage: 0, task: "running" },
-        ...current,
-      ]);
-    } else {
-      apiFetch(`/api/knowledge/documents/${item.id}/retry`, {
-        method: "POST",
-      });
-      setDocs((current) =>
-        current.map((d) =>
-          d.id === item.id ? { ...d, stage: 0, task: "running" } : d,
-        ),
-      );
-    }
+    runTaskRetry(item);
     toast("已重新加入演示处理队列");
   };
   return (
