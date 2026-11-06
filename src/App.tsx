@@ -1,75 +1,122 @@
+import { ChevronRight } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { FileText, Layers3, ChevronRight, Search } from "lucide-react";
+import { ConnectionStatus } from "./components/ConnectionStatus";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { RequestStatus } from "./components/RequestStatus";
 import { Modal, ToastProvider } from "./components/ui";
+import { ConfirmDialog } from "./components/ui/ConfirmDialog";
+import type { KnowledgeDocument } from "./features/knowledge/types";
+import { useResource } from "./hooks/useResource";
 import { navigation } from "./layouts/navigation";
 import { Sidebar } from "./layouts/Sidebar";
 import { Topbar } from "./layouts/Topbar";
-import ChatPage from "./pages/ChatPage";
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+import { ThemeProvider } from "./providers/ThemeProvider";
+import { WorkspaceProvider } from "./providers/WorkspaceProvider";
 
 const OverviewPage = lazy(() => import("./pages/OverviewPage"));
 const KnowledgePage = lazy(() =>
-  import("./pages/KnowledgePages").then((module) => ({
+  import("./pages/KnowledgePage").then((module) => ({
     default: module.KnowledgePage,
   })),
 );
 const DocumentsPage = lazy(() =>
-  import("./pages/KnowledgePages").then((module) => ({
+  import("./pages/DocumentsPage").then((module) => ({
     default: module.DocumentsPage,
   })),
 );
 const TasksPage = lazy(() =>
-  import("./pages/KnowledgePages").then((module) => ({
+  import("./pages/TasksPage").then((module) => ({
     default: module.TasksPage,
   })),
 );
 const PermissionsPage = lazy(() =>
-  import("./pages/GovernancePages").then((module) => ({
+  import("./pages/PermissionsPage").then((module) => ({
     default: module.PermissionsPage,
   })),
 );
 const AuditPage = lazy(() =>
-  import("./pages/GovernancePages").then((module) => ({
+  import("./pages/AuditPage").then((module) => ({
     default: module.AuditPage,
   })),
 );
 const EvaluationPage = lazy(() =>
-  import("./pages/GovernancePages").then((module) => ({
+  import("./pages/EvaluationPage").then((module) => ({
     default: module.EvaluationPage,
   })),
 );
 const SettingsPage = lazy(() =>
-  import("./pages/GovernancePages").then((module) => ({
+  import("./pages/SettingsPage").then((module) => ({
     default: module.SettingsPage,
   })),
 );
 const RetrievalPage = lazy(() =>
-  import("./pages/GovernancePages").then((module) => ({
+  import("./pages/RetrievalPage").then((module) => ({
     default: module.RetrievalPage,
   })),
 );
 
-const searchResults = [
-  ...navigation.map((n) => ({
-    id: n.id,
-    label: n.label,
-    sub: "工作空间功能",
-  })),
-  {
-    id: "documents",
-    label: "员工休假管理制度.pdf",
-    sub: "企业制度库 · 已发布",
-  },
-  {
-    id: "documents",
-    label: "人力资源管理手册.docx",
-    sub: "企业制度库 · 已发布",
-  },
-  {
-    id: "documents",
-    label: "研发 API 接入指南.md",
-    sub: "技术文档库 · 已发布",
-  },
-];
+const pageResults = navigation.map((item) => ({
+  id: item.id,
+  label: item.label,
+  sub: "工作空间功能",
+}));
+function WorkspaceSearch({
+  onClose,
+  onNavigate,
+}: {
+  onClose: () => void;
+  onNavigate: (page: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const resource = useResource<{ documents: KnowledgeDocument[] }>(
+    "/api/knowledge/documents",
+    { documents: [] },
+  );
+  const results = [
+    ...pageResults,
+    ...(resource.data?.documents ?? []).map((doc) => ({
+      id: "documents",
+      label: doc.name,
+      sub: doc.category,
+    })),
+  ].filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
+  return (
+    <Modal title="搜索工作空间" onClose={onClose}>
+      <input
+        className="input"
+        aria-label="搜索工作空间"
+        placeholder="搜索功能或已保存的文档…"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <RequestStatus {...resource} />
+      <div className="search-results">
+        {results.map((item, index) => (
+          <button
+            key={`${item.id}-${index}`}
+            onClick={() => {
+              if (item.id === "documents")
+                sessionStorage.setItem(
+                  "knowledge-hub:document-query",
+                  item.label,
+                );
+              onNavigate(item.id);
+              onClose();
+            }}
+          >
+            <span>
+              {item.label}
+              <small>{item.sub}</small>
+            </span>
+            <ChevronRight size={16} />
+          </button>
+        ))}
+        {!results.length && <p>未找到匹配的结果</p>}
+      </div>
+    </Modal>
+  );
+}
 
 function Workspace() {
   const [page, setPage] = useState(() =>
@@ -79,17 +126,43 @@ function Workspace() {
   );
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState<string | null>(null);
-  const navigate = (id: string) => {
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null,
+  );
+  const commitNavigation = (id: string) => {
     if (navigation.some((n) => n.id === id)) {
       setPage(id);
       location.hash = id;
       setMobileNav(false);
     }
   };
+  const navigate = (id: string) => {
+    if (
+      id !== page &&
+      !window.dispatchEvent(
+        new Event("knowledge-hub:before-navigate", { cancelable: true }),
+      )
+    ) {
+      setPendingNavigation(id);
+      return;
+    }
+    commitNavigation(id);
+  };
   useEffect(() => {
     const hash = () => {
       const p = location.hash.slice(1);
-      if (navigation.some((n) => n.id === p)) setPage(p);
+      const target = navigation.some((n) => n.id === p) ? p : "chat";
+      if (
+        target !== page &&
+        !window.dispatchEvent(
+          new Event("knowledge-hub:before-navigate", { cancelable: true }),
+        )
+      ) {
+        history.replaceState(null, "", `#${page}`);
+        setPendingNavigation(target);
+        return;
+      }
+      setPage(target);
     };
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -106,13 +179,28 @@ function Workspace() {
       removeEventListener("hashchange", hash);
       removeEventListener("keydown", key);
     };
-  }, []);
+  }, [page]);
   return (
     <div className="app-shell">
+      <a
+        className="skip-link"
+        href="#workspace-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById("workspace-content")?.focus();
+        }}
+      >
+        跳转到内容
+      </a>
       {mobileNav && (
         <div className="nav-scrim" onClick={() => setMobileNav(false)} />
       )}
-      <Sidebar page={page} onNavigate={navigate} mobileOpen={mobileNav} />
+      <Sidebar
+        page={page}
+        onNavigate={navigate}
+        mobileOpen={mobileNav}
+        onClose={() => setMobileNav(false)}
+      />
       <div className="main-shell">
         <Topbar
           page={page}
@@ -120,7 +208,12 @@ function Workspace() {
           onOpenMobileNav={() => setMobileNav(true)}
           onOpenSearch={() => setSearch("")}
         />
-        <main className={`main-content ${page === "chat" ? "main-chat" : ""}`}>
+        <ConnectionStatus />
+        <main
+          id="workspace-content"
+          tabIndex={-1}
+          className={`main-content ${page === "chat" ? "main-chat" : ""}`}
+        >
           <Suspense
             fallback={
               <div className="page-loading" role="status">
@@ -142,57 +235,29 @@ function Workspace() {
           </Suspense>
         </main>
       </div>
+      <ConfirmDialog
+        open={pendingNavigation !== null}
+        title={
+          page === "settings" ? "离开未保存的设置？" : "离开未保存的内容？"
+        }
+        description="尚未保存的修改将丢失。"
+        confirmLabel="放弃修改并离开"
+        onCancel={() => setPendingNavigation(null)}
+        onConfirm={() => {
+          const target = pendingNavigation;
+          setPendingNavigation(null);
+          if (target) {
+            setPage(target);
+            history.pushState(null, "", `#${target}`);
+            setMobileNav(false);
+          }
+        }}
+      />
       {search !== null && (
-        <Modal title="搜索工作空间" onClose={() => setSearch(null)}>
-          <div className="search-modal-input">
-            <Search size={20} />
-            <input
-              autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索功能、文档或知识库…"
-              aria-label="搜索工作空间"
-            />
-          </div>
-          <div className="search-results">
-            {searchResults
-              .filter(
-                (n) =>
-                  !search ||
-                  n.label.toLowerCase().includes(search.toLowerCase()),
-              )
-              .map((n, i) => (
-                <button
-                  key={`${n.id}-${i}`}
-                  onClick={() => {
-                    navigate(n.id);
-                    setSearch(null);
-                  }}
-                >
-                  <span className="search-result-icon">
-                    {n.sub === "工作空间功能" ? (
-                      <Layers3 size={17} />
-                    ) : (
-                      <FileText size={17} />
-                    )}
-                  </span>
-                  <span>
-                    <strong>{n.label}</strong>
-                    <small>{n.sub}</small>
-                  </span>
-                  <ChevronRight size={16} />
-                </button>
-              ))}
-            {search &&
-              searchResults.every(
-                (n) => !n.label.toLowerCase().includes(search.toLowerCase()),
-              ) && (
-                <p className="search-empty">
-                  未找到相关内容，试试“文档”或“权限”。
-                </p>
-              )}
-          </div>
-        </Modal>
+        <WorkspaceSearch
+          onClose={() => setSearch(null)}
+          onNavigate={navigate}
+        />
       )}
     </div>
   );
@@ -200,8 +265,14 @@ function Workspace() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <Workspace />
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <WorkspaceProvider>
+          <ErrorBoundary>
+            <Workspace />
+          </ErrorBoundary>
+        </WorkspaceProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

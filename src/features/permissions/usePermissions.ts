@@ -1,63 +1,79 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useResource } from "../../hooks/useResource";
 import { apiFetch } from "../../lib/api";
-import { useLocalStorage } from "../../lib/storage";
+import { getDataMode } from "../../lib/data-mode";
+import { useDataState } from "../../lib/storage";
 import { seedMembers } from "./data";
 import type { Member } from "./types";
-
 export function usePermissions() {
-  const [tab, setTab] = useState("权限策略");
-  const [members, setMembers] = useLocalStorage<Member[]>(
+  const [local, setLocal] = useDataState(
     "members",
     seedMembers,
+    [] as Member[],
   );
-  const [rules, setRules] = useLocalStorage<Record<string, boolean[]>>(
+  const [localRules, setLocalRules] = useDataState<Record<string, boolean[]>>(
     "permission-rules",
     {},
+    {},
   );
-  const permissionsLoaded = useRef(false);
-  useEffect(() => {
-    if (permissionsLoaded.current) return;
-    permissionsLoaded.current = true;
-    apiFetch<{
-      members: Member[];
-      rules: Record<string, boolean[]>;
-    }>("/api/permissions").then((data) => {
-      if (data?.members.length) setMembers(data.members);
-      if (data && Object.keys(data.rules).length) setRules(data.rules);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const state = useResource<{
+    members: Member[];
+    rules: Record<string, boolean[]>;
+    revision?: number;
+  }>("/api/permissions", { members: local, rules: localRules });
+  const demo = getDataMode() === "demo";
+  const members = demo ? local : (state.data?.members ?? []);
+  const rules = demo ? localRules : (state.data?.rules ?? {});
+  const [tab, setTab] = useState("权限策略");
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [memberDept, setMemberDept] = useState<string>("研发部");
-  const [memberRole, setMemberRole] = useState<string>("普通成员");
+  const [memberDept, setMemberDept] = useState("研发部");
+  const [memberRole, setMemberRole] = useState("普通成员");
   const [department, setDepartment] = useState("研发部");
   const [role, setRole] = useState("普通成员");
-  const key = `${department}:${role}`;
-  const getPermissions = (index: number) =>
-    rules[`${key}:${index}`] ?? [
-      index !== 2 || department === "研发部",
-      role !== "普通成员",
-      role === "知识库管理员",
-      role === "知识库管理员",
-    ];
-  const togglePermission = (row: number, col: number) => {
-    const vals = [...getPermissions(row)];
-    vals[col] = !vals[col];
-    apiFetch("/api/permissions/rules", {
-      method: "PUT",
-      body: JSON.stringify({ key: `${key}:${row}`, values: vals }),
-    });
-    setRules({ ...rules, [`${key}:${row}`]: vals });
+  const update = (next: Member[]) => {
+    if (demo) setLocal(next);
+    else
+      state.setData((current) => ({
+        ...current,
+        members: next,
+        rules: current?.rules ?? {},
+      }));
   };
-  const addMember = async (
-    e: React.FormEvent<HTMLFormElement>,
-  ) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-    if (members.some((m) => m.email === email.trim())) return "duplicate" as const;
-    const member: Member = {
+  const getPermissions = (index: number) =>
+    rules[`${department}:${role}:${index}`] ?? [false, false, false, false];
+  const togglePermission = async (row: number, col: number) => {
+    const key = `${department}:${role}:${row}`;
+    const values = [...getPermissions(row)];
+    values[col] = !values[col];
+    const saved = await apiFetch<{ revision: number }>(
+      "/api/permissions/rules",
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          key,
+          values,
+          revision: state.data?.revision ?? 1,
+        }),
+      },
+    );
+    if (demo) setLocalRules((prev) => ({ ...prev, [key]: values }));
+    else
+      state.setData((current) => ({
+        members: current?.members ?? [],
+        revision: saved?.revision,
+        rules: { ...current?.rules, [key]: values },
+      }));
+  };
+  const addMember = async () => {
+    if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      throw new Error("请填写姓名和有效邮箱");
+    if (
+      members.some((m) => m.email.toLowerCase() === email.trim().toLowerCase())
+    )
+      throw new Error("该邮箱已在工作空间中");
+    const input = {
       name: name.trim(),
       email: email.trim(),
       department: memberDept,
@@ -65,41 +81,45 @@ export function usePermissions() {
     };
     const data = await apiFetch<{ member: Member }>(
       "/api/permissions/members",
-      { method: "POST", body: JSON.stringify(member) },
+      { method: "POST", body: JSON.stringify(input) },
     );
-    setMembers((current) => [
-      ...current,
-      data?.member ?? { ...member, id: crypto.randomUUID() },
-    ]);
+    update([...members, data?.member ?? { ...input, id: crypto.randomUUID() }]);
     setAdding(false);
     setName("");
     setEmail("");
-    return "added" as const;
   };
-  const updateMemberRole = async (member: Member, role: string) => {
-    apiFetch(`/api/permissions/members/${member.id ?? ""}`, {
-      method: "PUT",
-      body: JSON.stringify({ role }),
-    });
-    setMembers((current) =>
-      current.map((m) => (m.id === member.id ? { ...m, role } : m)),
+  const updateMemberRole = async (member: Member, nextRole: string) => {
+    const data = await apiFetch<{ member: Member }>(
+      `/api/permissions/members/${member.id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          role: nextRole,
+          revision: member.revision ?? 1,
+        }),
+      },
+    );
+    update(
+      members.map((item) =>
+        item.id === member.id
+          ? (data?.member ?? { ...member, role: nextRole })
+          : item,
+      ),
     );
   };
   const removeMember = async (member: Member) => {
-    apiFetch(`/api/permissions/members/${member.id ?? ""}`, {
+    await apiFetch(`/api/permissions/members/${member.id}`, {
       method: "DELETE",
+      headers: { "If-Match": String(member.revision ?? 1) },
     });
-    setMembers((current) =>
-      current.filter((m) => m.id !== member.id),
-    );
+    update(members.filter((item) => item.id !== member.id));
   };
   return {
+    ...state,
     tab,
     setTab,
     members,
-    setMembers,
     rules,
-    setRules,
     adding,
     setAdding,
     name,

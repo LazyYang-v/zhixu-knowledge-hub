@@ -1,5 +1,7 @@
 # Zhixu Knowledge Hub V2 — 第一阶段：源码审查报告
 
+> 历史前端审查记录，部分描述/行数对应更早版本，不应直接作为目标快照的完整系统结论。目标 `snapshot-2026-11-06` 的逐项复核、更正及全项目路线见 [系统源码审查](phase-0-system-audit.md)；P1/P2 实际能力以各阶段实施记录为准。
+
 > 审查日期：2026-11-06 · 基于真实源码逐文件核对，非猜测。
 
 ## 1. 前端页面与组件依赖关系
@@ -88,7 +90,7 @@ lib/storage.ts：useLocalStorage（全部页面的本地持久化）
 | 知识库 | GET/POST `/api/knowledge/bases`；PUT/DELETE `/api/knowledge/bases/:id` | CRUD |
 | 文档 | GET `/api/knowledge/documents`（query/status/category 过滤）；GET/PUT/DELETE `/documents/:id` | 列表/详情/编辑/删除 |
 | 导入 | POST `/api/knowledge/documents/import` | mode: file(仅元数据)/web/text(服务端分块) |
-| 流程 | POST `/documents/:id/publish|archive|advance|retry`；PUT `/documents/:id/chunks/:index`；POST `/documents/:id/rollback` | 状态流转、分块编辑（自动版本）、回滚 |
+| 流程 | POST `/documents/:id/publish\|archive\|advance\|retry`；PUT `/documents/:id/chunks/:index`；POST `/documents/:id/rollback` | 状态流转、分块编辑（自动版本）、回滚 |
 | 任务 | GET `/api/knowledge/tasks`；POST `/tasks/:id/retry` | 任务列表、重试 |
 | 检索 | POST `/api/retrieval/search` | query/strategy/scope/threshold/topK → trace（stages+hits） |
 | 评测 | GET/POST `/api/evaluations`；GET `/evaluations/:id` | 列表、执行（返回 metrics+records）、详情 |

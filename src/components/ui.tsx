@@ -1,23 +1,45 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { AlertCircle, CheckCircle2, Inbox, Info, X } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { X, CheckCircle2, Inbox } from "lucide-react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
-const ToastContext = createContext<(message: string) => void>(() => {});
+type ToastTone = "success" | "error" | "info";
+const ToastContext = createContext<(message: string, tone?: ToastTone) => void>(
+  () => {},
+);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState("");
+  const [tone, setTone] = useState<ToastTone>("info");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const notify = (message: string) => {
+  const notify = useCallback((message: string, tone: ToastTone = "info") => {
+    setTone(tone);
     clearTimeout(timer.current);
     setToast(message);
-    timer.current = setTimeout(() => setToast(""), 3500);
-  };
+    timer.current = setTimeout(() => setToast(""), 5000);
+  }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
   return (
     <ToastContext.Provider value={notify}>
       {children}
       {toast && (
-        <div className="toast" role="status">
-          <CheckCircle2 size={18} />
+        <div
+          className={`toast toast-${tone}`}
+          role={tone === "error" ? "alert" : "status"}
+        >
+          {tone === "error" ? (
+            <AlertCircle size={18} />
+          ) : tone === "success" ? (
+            <CheckCircle2 size={18} />
+          ) : (
+            <Info size={18} />
+          )}
           {toast}
           <button aria-label="关闭提示" onClick={() => setToast("")}>
             <X size={15} />
@@ -69,38 +91,7 @@ export function Modal({
   onClose: () => void;
   wide?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const el = ref.current;
-    el?.querySelector<HTMLElement>("input, button, select, textarea")?.focus();
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
-      if (e.key === "Tab" && el) {
-        const elements = Array.from(
-          el.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), input, select, textarea, [tabindex="0"]',
-          ),
-        );
-        const first = elements[0];
-        const last = elements[elements.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("keydown", key);
-      previous?.focus();
-    };
-  }, []);
+  const ref = useDialogFocus(true, onClose);
   return (
     <div
       className="modal-backdrop"
@@ -111,6 +102,7 @@ export function Modal({
       <div
         className={`modal ${wide ? "modal-wide" : ""}`}
         ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

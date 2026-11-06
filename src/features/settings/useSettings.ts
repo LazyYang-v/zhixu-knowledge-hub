@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useResource } from "../../hooks/useResource";
+import { useUnsavedChanges } from "../../hooks/useUnsavedChanges";
 import { apiFetch } from "../../lib/api";
-import { useLocalStorage } from "../../lib/storage";
+import { useDataState } from "../../lib/storage";
 import type { WorkspaceSettings } from "./types";
 
 export const defaultSettings: WorkspaceSettings = {
@@ -19,62 +21,74 @@ export const defaultSettings: WorkspaceSettings = {
 };
 
 export function useSettings() {
-  const [saved, setSaved] = useLocalStorage<WorkspaceSettings>(
+  const [local, setLocal] = useDataState<WorkspaceSettings>(
     "settings",
     defaultSettings,
+    defaultSettings,
   );
-  const [form, setForm] = useState<WorkspaceSettings>(saved);
+  const state = useResource<{ settings: WorkspaceSettings }>("/api/settings", {
+    settings: local,
+  });
+  const [form, setForm] = useState<WorkspaceSettings>(local);
+  const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState("工作空间");
   const [integration, setIntegration] = useState<string | null>(null);
-  const settingsLoaded = useRef(false);
   useEffect(() => {
-    if (settingsLoaded.current) return;
-    settingsLoaded.current = true;
-    apiFetch<{ settings: WorkspaceSettings }>("/api/settings").then(
-      (data) => {
-        if (data?.settings) {
-          setSaved(data.settings);
-          setForm(data.settings);
-        }
-      },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (state.data && !dirty) setForm(state.data.settings);
+  }, [state.data, dirty]);
+  useUnsavedChanges(dirty);
   const change = <K extends keyof WorkspaceSettings>(
     key: K,
     value: WorkspaceSettings[K],
-  ) => setForm((f) => ({ ...f, [key]: value }));
+  ) => {
+    setDirty(true);
+    setForm((previous) => ({ ...previous, [key]: value }));
+  };
   const save = async () => {
-    if (!form.workspace.trim()) return "empty" as const;
-    const size = Number(form.chunkSize);
-    const overlap = Number(form.overlap);
-    if (size < 64 || size > 4096 || overlap < 0 || overlap >= size)
-      return "range" as const;
+    if (!form.workspace.trim()) throw new Error("请输入工作空间名称");
+    const size = Number(form.chunkSize),
+      overlap = Number(form.overlap),
+      topK = Number(form.topK);
+    if (
+      !Number.isInteger(size) ||
+      size < 64 ||
+      size > 4096 ||
+      !Number.isInteger(overlap) ||
+      overlap < 0 ||
+      overlap >= size ||
+      !Number.isInteger(topK) ||
+      topK < 1 ||
+      topK > 20
+    )
+      throw new Error("请检查分块长度、重叠长度和召回数量");
     const data = await apiFetch<{ settings: WorkspaceSettings }>(
       "/api/settings",
       { method: "PUT", body: JSON.stringify(form) },
     );
-    if (data?.settings) {
-      setSaved(data.settings);
-      setForm(data.settings);
-      return "server" as const;
-    }
-    setSaved(form);
+    const saved = data?.settings ?? form;
+    if (data) state.setData(data);
+    else setLocal(saved);
+    let preferencesSaved = true;
     try {
-      localStorage.setItem(
-        "knowledge-hub:citations",
-        JSON.stringify(form.citations),
-      );
-      localStorage.setItem(
-        "knowledge-hub:multi-turn",
-        JSON.stringify(form.multiTurn),
-      );
-      return "offline" as const;
+      for (const [key, value] of [
+        ["citations", saved.citations],
+        ["multi-turn", saved.multiTurn],
+      ] as const)
+        localStorage.setItem(`knowledge-hub:${key}`, JSON.stringify(value));
     } catch {
-      return "no-storage" as const;
+      preferencesSaved = false;
     }
+    window.dispatchEvent(new Event("knowledge-hub:preferences"));
+    setForm(saved);
+    setDirty(false);
+    return data
+      ? preferencesSaved
+        ? "server"
+        : "server-preferences-unavailable"
+      : "offline";
   };
   return {
+    ...state,
     tab,
     setTab,
     integration,
@@ -82,5 +96,6 @@ export function useSettings() {
     form,
     change,
     save,
+    dirty,
   };
 }

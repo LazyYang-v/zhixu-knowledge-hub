@@ -32,7 +32,7 @@
 }
 .ui-btn-primary {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--color-on-brand);
 }
 .ui-btn-primary:hover:not(:disabled) {
   background: var(--brand-600);
@@ -57,10 +57,10 @@
 }
 .ui-btn-danger {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-brand);
 }
 .ui-btn-danger:hover:not(:disabled) {
-  background: #c64552;
+  background: var(--color-danger);
 }
 .ui-btn-spinner {
   animation: ui-spin 0.8s linear infinite;
@@ -132,7 +132,7 @@
   background: linear-gradient(
     90deg,
     var(--color-surface-alt) 25%,
-    #e9ebf3 45%,
+    var(--color-surface-alt) 45%,
     var(--color-surface-alt) 65%
   );
   background-size: 200% 100%;
@@ -340,7 +340,7 @@
 }
 .ui-pagination button.is-active {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--color-on-brand);
 }
 .ui-pagination button:disabled {
   opacity: 0.4;

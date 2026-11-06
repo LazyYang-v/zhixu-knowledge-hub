@@ -8,30 +8,49 @@
     "dev": "vite --host 0.0.0.0",
     "server": "tsx watch server/index.ts",
     "server:start": "tsx server/index.ts",
-    "build": "tsc -b && vite build",
+    "build": "npm run check && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "check": "tsc --noEmit && tsc -p server/tsconfig.json",
-    "format": "prettier --write src index.html vite.config.ts"
+    "format": "prettier --write src index.html vite.config.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:components": "vitest run tests/components",
+    "test:api": "vitest run tests/api",
+    "test:e2e": "playwright test",
+    "check:tests": "tsc -p tsconfig.tests.json",
+    "data:check": "tsx scripts/check-data.ts",
+    "data:dry-run": "tsx scripts/migrate-data.ts",
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "auth:init": "tsx scripts/init-local-auth.ts",
+    "test:auth:e2e": "node scripts/test-postgres.mjs --e2e"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.6",
     "hono": "^4.13.16",
     "lucide-react": "^0.468.0",
     "mermaid": "^12.3.0",
+    "pg": "^8.23.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.4.1",
     "concurrently": "^10.0.6",
+    "jsdom": "^31.0.0",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^5.1.0"
   }
 }

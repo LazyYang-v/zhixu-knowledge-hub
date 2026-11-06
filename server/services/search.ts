@@ -43,7 +43,7 @@ function tokenize(text: string): string[] {
 function buildCorpus(documents: KnowledgeDocument[]): ChunkRecord[] {
   const records: ChunkRecord[] = [];
   for (const doc of documents) {
-    if (doc.status === "已归档") continue;
+    if (doc.status !== "已发布" || doc.task !== "done") continue;
     doc.chunks.forEach((content, index) => {
       const [firstLine, ...rest] = content.split("\n");
       records.push({
@@ -74,7 +74,8 @@ export function search(
   const scope = options.scope ?? "全部知识库";
   const threshold = options.threshold ?? 0.65;
   const topK = options.topK ?? 5;
-  const mode = strategy === "BM25" ? "bm25" : strategy === "向量检索" ? "dense" : "rerank";
+  const mode =
+    strategy === "BM25" ? "bm25" : strategy === "向量检索" ? "dense" : "rerank";
 
   const corpus = buildCorpus(documents).filter(
     (c) => scope === "全部知识库" || c.scope === scope,
@@ -97,12 +98,16 @@ export function search(
       if (f === 0) continue;
       const idf =
         Math.log(
-          (corpus.length - chunkTokens.filter((t) => t === token).length + 0.5) /
-            (chunkTokens.filter((t) => t === token).length + 0.5) + 1,
+          (corpus.length -
+            chunkTokens.filter((t) => t === token).length +
+            0.5) /
+            (chunkTokens.filter((t) => t === token).length + 0.5) +
+            1,
         ) || 0.5;
       bm25Raw +=
         idf *
-        ((f * 2.5) / (f + 1.5 * (0.25 + 0.75 * (chunk.content.length / avgLen))));
+        ((f * 2.5) /
+          (f + 1.5 * (0.25 + 0.75 * (chunk.content.length / avgLen))));
     }
     if (chunkTokens.some((t) => queryTokens.has(t))) bm25Raw += 1;
     const synonymHits = expanded.filter((term) =>
@@ -114,9 +119,7 @@ export function search(
       tokenize(chunk.title).includes(t),
     ).length;
     const denseRaw =
-      synonymHits * 1.2 +
-      titleHit * 1.5 +
-      (chunk.scope === scope ? 0.6 : 0);
+      synonymHits * 1.2 + titleHit * 1.5 + (chunk.scope === scope ? 0.6 : 0);
 
     return { chunk, bm25Raw, denseRaw };
   });
@@ -150,21 +153,37 @@ export function search(
 
   const stages: RetrievalStage[] = [
     {
-      name: "权限预过滤",
-      detail: `按租户与部门过滤候选范围，剩余 ${corpus.length} 个分块`,
+      name: "候选范围筛选（未授权校验）",
+      detail: `按已发布状态与分类筛选，剩余 ${corpus.length} 个分块；未执行租户、部门或角色权限校验`,
       ms: 6 + Math.round(Math.random() * 8),
     },
     {
-      name: strategy === "混合检索" ? "混合召回" : strategy === "BM25" ? "关键词召回" : "语义召回",
+      name:
+        strategy === "混合检索"
+          ? "混合召回"
+          : strategy === "BM25"
+            ? "关键词召回"
+            : "语义召回",
       detail: `召回 ${scored.filter((s) => (mode === "bm25" ? s.bm25Raw : s.denseRaw) > 0).length} 条候选，阈值 ${threshold}`,
       ms: 28 + Math.round(Math.random() * 40),
     },
     {
-      name: "重排序",
+      name: "规则重排序（模拟耗时）",
       detail: `取 Top ${topK}，最高分 ${hits[0]?.score?.toFixed(2) ?? "—"}`,
       ms: 45 + Math.round(Math.random() * 60),
     },
   ];
 
-  return { query, mode, topK, threshold, scope, stages, hits };
+  return {
+    query,
+    mode,
+    topK,
+    threshold,
+    scope,
+    stages,
+    hits,
+    implementation: "rule_demo",
+    timing: "simulated",
+    permissionFiltering: "not_configured",
+  };
 }

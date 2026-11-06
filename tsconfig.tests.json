@@ -1,0 +1,5 @@
+{
+  "extends":"./tsconfig.json",
+  "compilerOptions":{"types":["node","vitest/globals"],"noEmit":true},
+  "include":["src","server","tests","vitest.config.ts","vitest.postgres.config.ts","playwright.config.ts","playwright.auth.config.ts","vite.config.ts"]
+}

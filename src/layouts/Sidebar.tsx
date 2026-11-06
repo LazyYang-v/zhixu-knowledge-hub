@@ -1,17 +1,31 @@
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import { ArrowUpRight, ChevronDown, Database, Layers3 } from "lucide-react";
+import { getDataMode } from "../lib/data-mode";
+import { useWorkspace } from "../providers/WorkspaceProvider";
 import { navigation } from "./navigation";
 
 export function Sidebar({
   page,
   onNavigate,
   mobileOpen,
+  onClose,
 }: {
   page: string;
   onNavigate: (id: string) => void;
   mobileOpen: boolean;
+  onClose: () => void;
 }) {
+  const sidebarRef = useDialogFocus(mobileOpen, onClose);
+  const { overview, health } = useWorkspace();
   return (
-    <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
+    <aside
+      ref={sidebarRef}
+      tabIndex={-1}
+      role={mobileOpen ? "dialog" : undefined}
+      aria-modal={mobileOpen ? true : undefined}
+      aria-label={mobileOpen ? "主导航" : undefined}
+      className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}
+    >
       <button
         className="brand"
         onClick={() => onNavigate("overview")}
@@ -58,7 +72,9 @@ export function Sidebar({
                   <span
                     className={`nav-badge ${item.badge === "AI" ? "nav-badge-ai" : ""}`}
                   >
-                    {item.badge}
+                    {item.id === "tasks"
+                      ? (overview.data?.stats.tasks.running ?? "—")
+                      : item.badge}
                   </span>
                 )}
                 {page === item.id && <span className="nav-indicator" />}
@@ -72,13 +88,18 @@ export function Sidebar({
           <div className="storage-heading">
             <Database size={15} />
             <span>知识资产概况</span>
-            <span>57%</span>
+            <span>
+              {getDataMode() === "demo"
+                ? "演示"
+                : (overview.data?.stats.bases ?? "—")}{" "}
+              个库
+            </span>
           </div>
           <div className="storage-bar">
             <span />
           </div>
           <p>
-            <strong>2,846</strong> / 5,000 篇文档
+            <strong>{overview.data?.stats.documents ?? "—"}</strong> 份文档记录
             <button
               onClick={() => onNavigate("knowledge")}
               aria-label="查看知识资产"
@@ -88,7 +109,15 @@ export function Sidebar({
           </p>
         </div>
         <div className="sidebar-status">
-          <span className="status-dot" /> 所有系统运行正常 <span>v1.0</span>
+          <span className="status-dot" />{" "}
+          {getDataMode() === "demo"
+            ? "本地演示"
+            : health.loading
+              ? "检查连接中"
+              : health.error
+                ? "API 无法连接"
+                : "API 可连接"}{" "}
+          <span>v1.0</span>
         </div>
       </div>
     </aside>

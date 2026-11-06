@@ -1,0 +1,246 @@
+{
+  "exampleOnly": true,
+  "source": "repository-seed-copy",
+  "schemaVersion": 1,
+  "scope": "json-integrity-preflight",
+  "status": "warnings",
+  "migrationReady": "not_assessed",
+  "counts": {
+    "unknownRootFields": 0,
+    "bases": 4,
+    "documents": 8,
+    "tasks": 3,
+    "members": 4,
+    "conversations": 4,
+    "auditLogs": 3,
+    "evaluations": 1,
+    "files": 0,
+    "versions": 10,
+    "versionChunks": 19,
+    "messages": 8
+  },
+  "totals": {
+    "error": 0,
+    "warning": 40,
+    "incomplete": 0
+  },
+  "issueCounts": {
+    "LEGACY_BASE_RELATION": 8,
+    "LEGACY_ORIGINAL_FILE_UNAVAILABLE": 8,
+    "LEGACY_VERSION_ID": 10,
+    "LEGACY_CHUNK_IDS": 10,
+    "LEGACY_TASK_WITHOUT_JOB": 3,
+    "VERIFIED_IDENTITY_MAPPING_REQUIRED": 1
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[0].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[0].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[0].versions[1]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[0].versions[1]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[0].versions[2]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[0].versions[2]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[1]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[1]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[1].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[1].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[2]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[2]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[2].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[2].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[3]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[3]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[3].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[3].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[4]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[4]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[4].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[4].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[5]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[5]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[5].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[5].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[6]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[6]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[6].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[6].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_BASE_RELATION",
+      "location": "documents[7]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_ORIGINAL_FILE_UNAVAILABLE",
+      "location": "documents[7]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_VERSION_ID",
+      "location": "documents[7].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_CHUNK_IDS",
+      "location": "documents[7].versions[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_TASK_WITHOUT_JOB",
+      "location": "tasks[0]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_TASK_WITHOUT_JOB",
+      "location": "tasks[1]"
+    },
+    {
+      "severity": "warning",
+      "code": "LEGACY_TASK_WITHOUT_JOB",
+      "location": "tasks[2]"
+    },
+    {
+      "severity": "warning",
+      "code": "VERIFIED_IDENTITY_MAPPING_REQUIRED",
+      "location": "root"
+    }
+  ],
+  "issuesTruncated": false,
+  "fileVerification": "not_applicable",
+  "pendingMigrationChecks": [
+    "database_selection",
+    "verified_identity_mapping",
+    "resource_grants_mapping",
+    "sql_transaction_dry_run"
+  ],
+  "sourceSha256": "ebe1bde8e4218726b3952bf33d03279b104c91cf4650c2ea1a1bd438ace21f9f"
+}

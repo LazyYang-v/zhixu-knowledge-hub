@@ -1,27 +1,33 @@
+import { mutateRequest } from "../services/mutations.js";
+import { requestBody } from "../http/validation.js";
 import { Hono } from "hono";
-import type { Store } from "../lib/store.js";
+import type { StateRepository } from "../repositories/state.js";
 import { createId, timeGroup, timeOfDay } from "../lib/util.js";
 import { answers, identifyAnswer, sourceFor } from "../services/answer.js";
 import { search } from "../services/search.js";
+import {
+  messageView,
+  unconfiguredPermission,
+} from "../services/capabilities.js";
 import type { Conversation, Message } from "../types.js";
 
 type ConversationSummary = Conversation & { time: string; group: string };
 
-function serialize(conversation: Conversation): ConversationSummary {
+function serialize(
+  conversation: Conversation,
+  authorized = false,
+): ConversationSummary {
   return {
     ...conversation,
+    messages: conversation.messages.map((message) =>
+      messageView(message, authorized),
+    ),
     time: timeOfDay(new Date(conversation.updatedAt)),
     group: timeGroup(conversation.updatedAt),
   };
 }
 
-function readJson(body: unknown): Record<string, unknown> {
-  return typeof body === "object" && body !== null
-    ? (body as Record<string, unknown>)
-    : {};
-}
-
-export function conversationRoutes(store: Store) {
+export function conversationRoutes(store: StateRepository) {
   const app = new Hono();
 
   app.get("/", async (c) => {
@@ -35,12 +41,12 @@ export function conversationRoutes(store: Store) {
           conv.messages.some((m) => m.content.includes(query)),
       )
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .map(serialize);
+      .map((conversation) => serialize(conversation, !!c.get("principal")));
     return c.json({ conversations });
   });
 
   app.post("/", async (c) => {
-    const body = readJson(await c.req.json().catch(() => null));
+    const body = requestBody(c);
     const nowIso = new Date().toISOString();
     const title =
       typeof body.title === "string" && body.title.trim()
@@ -53,8 +59,14 @@ export function conversationRoutes(store: Store) {
       updatedAt: nowIso,
       messages: [],
     };
-    await store.update((db) => db.conversations.push(conversation));
-    return c.json({ conversation: serialize(conversation) }, 201);
+    const saved = await mutateRequest(c, store, (db) => {
+      db.conversations.push(conversation);
+      return conversation;
+    });
+    return c.json(
+      { conversation: serialize(saved, !!c.get("principal")) },
+      201,
+    );
   });
 
   app.get("/:id", async (c) => {
@@ -63,11 +75,13 @@ export function conversationRoutes(store: Store) {
       (conv) => conv.id === c.req.param("id"),
     );
     if (!conversation) return c.json({ error: "会话不存在" }, 404);
-    return c.json({ conversation: serialize(conversation) });
+    return c.json({
+      conversation: serialize(conversation, !!c.get("principal")),
+    });
   });
 
   app.delete("/:id", async (c) => {
-    const removed = await store.update((db) => {
+    const removed = await mutateRequest(c, store, (db) => {
       const index = db.conversations.findIndex(
         (conv) => conv.id === c.req.param("id"),
       );
@@ -80,7 +94,7 @@ export function conversationRoutes(store: Store) {
   });
 
   app.post("/:id/messages", async (c) => {
-    const body = readJson(await c.req.json().catch(() => null));
+    const body = requestBody(c);
     const content = typeof body.content === "string" ? body.content.trim() : "";
     if (!content) return c.json({ error: "消息内容不能为空" }, 400);
     const scope =
@@ -88,16 +102,19 @@ export function conversationRoutes(store: Store) {
     const citationsOn = body.citations !== false;
 
     const settings = (await store.load()).settings;
-    const result = await store.update((db) => {
+    const result = await mutateRequest(c, store, (db) => {
       const conversation = db.conversations.find(
         (conv) => conv.id === c.req.param("id"),
       );
       if (!conversation) return null;
       const now = new Date();
       const nowIso = now.toISOString();
-      const previous = [...conversation.messages]
-        .reverse()
-        .find((m) => m.role === "assistant")?.kind;
+      const previous =
+        (body.multiTurn ?? settings.multiTurn) === false
+          ? undefined
+          : [...conversation.messages]
+              .reverse()
+              .find((m) => m.role === "assistant")?.kind;
       const kind = identifyAnswer(content, scope, previous);
       const trace = search(db.documents, {
         query: content,
@@ -116,6 +133,7 @@ export function conversationRoutes(store: Store) {
         time: timeOfDay(now),
       };
       const answerMessage: Message = {
+        answerMode: "rule_demo",
         id: createId("msg"),
         role: "assistant",
         content: answers[kind],
@@ -124,10 +142,7 @@ export function conversationRoutes(store: Store) {
         citations: citationsOn,
         sources,
         retrieval: trace,
-        permission: {
-          checked: ["租户隔离", "部门范围", "角色权限"],
-          result: kind === "unknown" ? "通过（未命中知识）" : "通过",
-        },
+        permission: unconfiguredPermission(),
       };
       conversation.messages.push(userMessage, answerMessage);
       conversation.updatedAt = nowIso;
@@ -137,47 +152,38 @@ export function conversationRoutes(store: Store) {
       ) {
         conversation.title = content.slice(0, 30);
       }
-      if (settings.audit) {
-        db.auditLogs.push({
-          id: createId("log"),
-          time: nowIso,
-          user: "王小雨",
-          department: "人力资源部",
-          action: "智能问答",
-          content,
-          source: "AI 知识助手",
-          status: kind === "unknown" ? "未命中" : "正常",
-          docs: sources.map((s) => s.title),
-        });
-      }
       return { conversation, userMessage, answerMessage };
     });
     if (!result) return c.json({ error: "会话不存在" }, 404);
     return c.json({
       userMessage: result.userMessage,
-      answerMessage: result.answerMessage,
-      conversation: serialize(result.conversation),
+      answerMessage: messageView(result.answerMessage, !!c.get("principal")),
+      conversation: serialize(result.conversation, !!c.get("principal")),
     });
   });
 
   app.patch("/:id/messages/:messageId/feedback", async (c) => {
-    const body = readJson(await c.req.json().catch(() => null));
+    const body = requestBody(c);
     const rating = body.rating;
-    if (rating !== "up" && rating !== "down")
-      return c.json({ error: "rating 必须是 up 或 down" }, 400);
-    const updated = await store.update((db) => {
+    if (rating !== "up" && rating !== "down" && rating !== null)
+      return c.json({ error: "rating 必须是 up、down 或 null" }, 400);
+    const updated = await mutateRequest(c, store, (db) => {
       const message = db.conversations
         .find((conv) => conv.id === c.req.param("id"))
         ?.messages.find((m) => m.id === c.req.param("messageId"));
       if (!message) return null;
-      message.feedback = {
-        rating,
-        comment: typeof body.comment === "string" ? body.comment : undefined,
-      };
+      message.feedback =
+        rating === null
+          ? undefined
+          : {
+              rating,
+              comment:
+                typeof body.comment === "string" ? body.comment : undefined,
+            };
       return message;
     });
     if (!updated) return c.json({ error: "消息不存在" }, 404);
-    return c.json({ message: updated });
+    return c.json({ message: messageView(updated, !!c.get("principal")) });
   });
 
   return app;

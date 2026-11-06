@@ -9,6 +9,7 @@ export type AnswerKind =
   | "technical"
   | "unknown";
 export interface Message {
+  answerMode?: "rule_demo" | "legacy_unverified";
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -18,6 +19,7 @@ export interface Message {
   sources?: Citation[];
   retrieval?: RetrievalTrace;
   permission?: {
+    status?: "not_configured" | "enforced";
     checked: string[];
     result: string;
   };
@@ -27,6 +29,8 @@ export interface Message {
   };
 }
 export interface Citation {
+  provenance?: "demo" | "legacy_unverified";
+  verified?: boolean;
   id: string;
   title: string;
   type: string;
@@ -55,6 +59,9 @@ export interface RetrievalHit {
   [scoreKey: string]: number | string | undefined;
 }
 export interface RetrievalTrace {
+  implementation?: "rule_demo" | "legacy_unverified";
+  timing?: "simulated" | "unverified";
+  permissionFiltering?: "not_configured" | "enforced";
   query: string;
   mode: "bm25" | "dense" | "rerank";
   topK: number;

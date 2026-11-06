@@ -1,7 +1,8 @@
 node_modules
 dist
-data
+/data/
 playwright-report
+playwright-auth-report
 test-results
 .DS_Store
 tsconfig.tsbuildinfo

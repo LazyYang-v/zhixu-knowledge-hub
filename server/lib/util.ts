@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 export function createId(prefix: string): string {
-  return `${prefix}-${randomBytes(4).toString("hex")}`;
+  return `${prefix}-${randomUUID()}`;
 }
 
 export function timeOfDay(date = new Date()): string {

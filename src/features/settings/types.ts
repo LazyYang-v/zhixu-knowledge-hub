@@ -1,4 +1,5 @@
 export interface WorkspaceSettings {
+  revision?: number;
   workspace: string;
   tenant: string;
   embedding: string;

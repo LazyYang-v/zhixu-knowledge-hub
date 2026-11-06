@@ -10,7 +10,9 @@
     />
     <title>知序 · 企业知识库助手</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  </head>
+  <script>
+try { const t=localStorage.getItem('knowledge-hub:theme'); document.documentElement.dataset.theme=t==='dark'||t==='light'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; } catch {}
+</script></head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

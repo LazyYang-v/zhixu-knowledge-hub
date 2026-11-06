@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
+import { getDataMode } from "../../lib/data-mode";
 import type { KnowledgeDocument } from "./types";
-import { apiFetch } from "../../lib/api";
-import { useLocalStorage } from "../../lib/storage";
 
 export function useDocumentAdvanceTimer(
   docs: KnowledgeDocument[],
-  setDocs: (updater: (current: KnowledgeDocument[]) => KnowledgeDocument[]) => void,
+  setDocs: (
+    updater: (current: KnowledgeDocument[]) => KnowledgeDocument[],
+  ) => void,
 ) {
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -16,7 +17,7 @@ export function useDocumentAdvanceTimer(
   }, []);
   const hasRunning = docs.some((d) => d.task === "running");
   useEffect(() => {
-    if (!hasRunning || !mountedRef.current) return;
+    if (getDataMode() !== "demo" || !hasRunning || !mountedRef.current) return;
     const timer = setInterval(() => {
       setDocs((current) =>
         current.map((d) =>
@@ -29,13 +30,6 @@ export function useDocumentAdvanceTimer(
               },
         ),
       );
-      docs
-        .filter((d) => d.task === "running")
-        .forEach((d) => {
-          apiFetch(`/api/knowledge/documents/${d.id}/advance`, {
-            method: "POST",
-          });
-        });
     }, 900);
     return () => clearInterval(timer);
   }, [hasRunning, docs, setDocs]);

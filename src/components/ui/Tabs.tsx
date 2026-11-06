@@ -23,6 +23,26 @@ export function Tabs<T extends string>({
           role="tab"
           type="button"
           aria-selected={value === tab.id}
+          tabIndex={value === tab.id ? 0 : -1}
+          onKeyDown={(event) => {
+            const index = tabs.findIndex((item) => item.id === value);
+            const next =
+              event.key === "ArrowRight"
+                ? (index + 1) % tabs.length
+                : event.key === "ArrowLeft"
+                  ? (index - 1 + tabs.length) % tabs.length
+                  : event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? tabs.length - 1
+                      : -1;
+            if (next < 0) return;
+            event.preventDefault();
+            onChange(tabs[next].id);
+            (
+              event.currentTarget.parentElement?.children[next] as HTMLElement
+            )?.focus();
+          }}
           className="ui-tab"
           onClick={() => onChange(tab.id)}
         >

@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
-import type { ReactNode } from "react";
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 import { IconButton } from "../ui";
 
 export function Drawer({
@@ -16,30 +16,18 @@ export function Drawer({
   children: ReactNode;
   wide?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    ref.current
-      ?.querySelector<HTMLElement>("input, button, select, textarea")
-      ?.focus();
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
-    };
-    addEventListener("keydown", key);
-    return () => {
-      removeEventListener("keydown", key);
-      previous?.focus();
-    };
-  }, [open]);
+  const ref = useDialogFocus(open, onClose);
   if (!open) return null;
   return (
     <>
-      <div className="ui-drawer-backdrop" onClick={onClose} aria-hidden="true" />
+      <div
+        className="ui-drawer-backdrop"
+        onClick={onClose}
+        aria-hidden="true"
+      />
       <aside
         ref={ref}
+        tabIndex={-1}
         className={`ui-drawer ${wide ? "ui-drawer-wide" : ""}`}
         role="dialog"
         aria-modal="true"

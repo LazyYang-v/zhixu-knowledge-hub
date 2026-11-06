@@ -1,6 +1,7 @@
-import { useState } from "react";
 import {
+  ArrowUpRight,
   Bell,
+  BookOpen,
   ChartNoAxesCombined,
   Check,
   ChevronDown,
@@ -9,10 +10,16 @@ import {
   Menu,
   Search,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
+import { useState } from "react";
 import { IconButton, Modal, useToast } from "../components/ui";
+import { getDataMode } from "../lib/data-mode";
+import { useTheme } from "../providers/ThemeProvider";
+import { useAuth } from "../providers/AuthProvider";
+import { useAction } from "../hooks/useAction";
+import { ChangePasswordDialog } from "../components/ChangePasswordDialog";
 import { descriptions, navigation } from "./navigation";
-import { BookOpen, Sparkles, ArrowUpRight } from "lucide-react";
 
 export function Topbar({
   page,
@@ -29,8 +36,12 @@ export function Topbar({
     null,
   );
   const [help, setHelp] = useState(false);
+  const [passwordDialog, setPasswordDialog] = useState(false);
   const [read, setRead] = useState(false);
   const toast = useToast();
+  const { theme, setTheme } = useTheme();
+  const auth = useAuth();
+  const { run, pending } = useAction();
   const current = navigation.find((n) => n.id === page)!;
   return (
     <header className="topbar">
@@ -56,9 +67,21 @@ export function Topbar({
       <div className="topbar-actions">
         <button className="global-search" onClick={onOpenSearch}>
           <Search size={17} />
-          <span>搜索文档、知识库…</span>
+          <span>搜索功能、文档…</span>
           <kbd>⌘ K</kbd>
         </button>
+        <select
+          className="theme-select"
+          aria-label="外观主题"
+          value={theme}
+          onChange={(event) =>
+            setTheme(event.target.value as "light" | "dark" | "system")
+          }
+        >
+          <option value="system">跟随系统</option>
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
         <div className="topbar-icon-wrap">
           <IconButton
             label="消息通知"
@@ -67,7 +90,9 @@ export function Topbar({
             }
           >
             <Bell size={20} />
-            {!read && <span className="notification-dot" />}
+            {getDataMode() === "demo" && !read && (
+              <span className="notification-dot" />
+            )}
           </IconButton>
         </div>
         <IconButton label="使用帮助" onClick={() => setHelp(true)}>
@@ -78,10 +103,18 @@ export function Topbar({
           className="profile-button"
           onClick={() => setPopover(popover === "profile" ? null : "profile")}
         >
-          <span className="avatar avatar-user">张</span>
+          <span className="avatar avatar-user">
+            {auth.user?.name.slice(-1) ?? "张"}
+          </span>
           <span>
-            <strong>张三</strong>
-            <small>研发部</small>
+            <strong>{auth.user?.name ?? "张三"}</strong>
+            <small>
+              {auth.user
+                ? { admin: "管理员", editor: "编辑者", viewer: "普通成员" }[
+                    auth.user.role
+                  ]
+                : "示例身份"}
+            </small>
           </span>
           <ChevronDown size={14} />
         </button>
@@ -90,7 +123,11 @@ export function Topbar({
         <>
           <div className="popover-dismiss" onClick={() => setPopover(null)} />
           <div className="topbar-popover">
-            {popover === "notifications" ? (
+            {popover === "notifications" && getDataMode() === "server" ? (
+              <div className="popover-title">
+                通知服务尚未接入；请在任务页查看记录。
+              </div>
+            ) : popover === "notifications" ? (
               <>
                 <div className="popover-title">
                   <strong>消息通知</strong>
@@ -134,15 +171,19 @@ export function Topbar({
             ) : (
               <>
                 <div className="profile-details">
-                  <span className="avatar avatar-user">张</span>
+                  <span className="avatar avatar-user">
+                    {auth.user?.name.slice(-1) ?? "张"}
+                  </span>
                   <div>
-                    <strong>张三</strong>
-                    <p>zhangsan@example.com</p>
+                    <strong>{auth.user?.name ?? "张三"}</strong>
+                    <p>{auth.user?.email ?? "zhangsan@example.com"}</p>
                   </div>
                 </div>
                 <div className="profile-role">
                   <ShieldCheck size={15} />
-                  研发部 · 知识管理员
+                  {auth.user
+                    ? `已登录 · ${auth.user.tenantId}`
+                    : "示例身份 · 尚未认证"}
                 </div>
                 <button
                   className="profile-menu-item"
@@ -156,13 +197,37 @@ export function Topbar({
                 >
                   工作空间设置 <ChevronRight size={15} />
                 </button>
-                <small className="demo-account-note">
-                  当前为本地演示账号
-                </small>
+                {auth.user && (
+                  <button
+                    className="profile-menu-item"
+                    onClick={() => {
+                      setPopover(null);
+                      setPasswordDialog(true);
+                    }}
+                  >
+                    修改密码
+                  </button>
+                )}
+                {auth.user ? (
+                  <button
+                    className="profile-menu-item"
+                    disabled={pending}
+                    onClick={() => void run(auth.logout)}
+                  >
+                    {pending ? "正在退出…" : "退出登录"}
+                  </button>
+                ) : (
+                  <small className="demo-account-note">
+                    当前为示例身份，尚未认证
+                  </small>
+                )}
               </>
             )}
           </div>
         </>
+      )}
+      {passwordDialog && (
+        <ChangePasswordDialog onClose={() => setPasswordDialog(false)} />
       )}
       {help && (
         <Modal title="欢迎使用知序" onClose={() => setHelp(false)}>
@@ -195,7 +260,12 @@ export function Topbar({
             </div>
           </div>
           <div className="info-callout">
-            这是纯前端交互演示。回答、检索、权限和指标使用模拟数据；浏览器本地保存演示操作，不会上传文件或调用模型。
+            服务端模式使用 REST API
+            保存记录；本地演示模式仅使用浏览器数据。原件可实际上传，TXT/Markdown
+            支持后台处理；问答仍是规则演示，真实模型与索引尚未接入。
+            {auth.user
+              ? "当前已启用本地登录与后端资源授权。"
+              : "当前服务未配置真实身份授权。"}
           </div>
           <button
             className="btn btn-primary help-start"

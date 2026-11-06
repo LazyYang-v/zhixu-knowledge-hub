@@ -1,0 +1,128 @@
+.auth-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: var(--color-bg, #f5f6fa);
+  color: var(--color-text, #202332);
+}
+.auth-card {
+  width: min(100%, 440px);
+  padding: 36px;
+  border: 1px solid var(--border, #e4e6ed);
+  border-radius: 16px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 12px 40px #17213b0a;
+}
+.auth-wordmark {
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+.auth-wordmark small {
+  margin-left: 10px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--color-text-muted, #717889);
+}
+.auth-card h1 {
+  margin: 30px 0 10px;
+  font-size: 26px;
+  letter-spacing: -0.025em;
+}
+.auth-card p {
+  line-height: 1.7;
+  color: var(--color-text-secondary, #687080);
+  margin-bottom: 24px;
+}
+.auth-card form {
+  display: grid;
+  gap: 18px;
+}
+.auth-card .input {
+  width: 100%;
+}
+.auth-card form > .btn {
+  margin-top: 6px;
+  width: 100%;
+  min-height: 42px;
+}
+.auth-error {
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border: 1px solid #d7474740;
+  border-radius: 8px;
+  background: #d747470a;
+  color: var(--color-danger, #b72d3b);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.auth-card .auth-notice {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.auth-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border, #e4e6ed);
+  font-size: 12px;
+  color: var(--color-text-muted, #717889);
+}
+.access-form {
+  display: grid;
+  gap: 16px;
+}
+.access-heading {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.access-heading h3 {
+  margin: 0 0 6px;
+}
+.access-heading p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.access-grant-input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary, #7659df);
+}
+.access-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.access-status {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 550px) {
+  .auth-card {
+    padding: 28px 22px;
+  }
+  .auth-card h1 {
+    font-size: 24px;
+  }
+  .access-heading {
+    padding: 16px;
+  }
+  .access-actions {
+    width: 100%;
+  }
+}

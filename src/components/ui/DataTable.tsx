@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Skeleton } from "./Skeleton";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "./EmptyState";
+import { Pagination } from "./Pagination";
+import { Skeleton } from "./Skeleton";
 
 export interface DataTableColumn<T> {
   key: string;
@@ -35,6 +36,9 @@ export function DataTable<T>({
   onRowClick?: (row: T) => void;
   ariaLabel?: string;
 }) {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  useEffect(() => setPage(1), [rows, sortResetKey(columns)]);
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(
     null,
   );
@@ -120,27 +124,67 @@ export function DataTable<T>({
                   ))}
                 </tr>
               ))
-            : sortedRows.map((row, index) => (
-                <tr
-                  key={rowKey(row, index)}
-                  className={onRowClick ? "is-clickable" : ""}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      style={{ textAlign: column.align ?? "left" }}
-                    >
-                      {column.render(row)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+            : sortedRows
+                .slice(
+                  (Math.min(
+                    page,
+                    Math.max(1, Math.ceil(rows.length / pageSize)),
+                  ) -
+                    1) *
+                    pageSize,
+                  Math.min(
+                    page,
+                    Math.max(1, Math.ceil(rows.length / pageSize)),
+                  ) * pageSize,
+                )
+                .map((row, index) => (
+                  <tr
+                    key={rowKey(row, index)}
+                    className={onRowClick ? "is-clickable" : ""}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    onKeyDown={
+                      onRowClick
+                        ? (event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              onRowClick(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        style={{ textAlign: column.align ?? "left" }}
+                      >
+                        {column.render(row)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
         </tbody>
       </table>
+      {!loading && (
+        <Pagination
+          page={Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)))}
+          pageSize={pageSize}
+          total={rows.length}
+          onChange={setPage}
+        />
+      )}
       {!loading && rows.length === 0 && (
-        <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />
+        <EmptyState
+          title={emptyTitle}
+          description={emptyDescription}
+          action={emptyAction}
+        />
       )}
     </div>
   );
+}
+
+function sortResetKey<T>(columns: DataTableColumn<T>[]) {
+  return columns.map((column) => column.key).join("|");
 }

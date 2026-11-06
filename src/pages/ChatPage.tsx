@@ -1,15 +1,9 @@
-import { useEffect, useRef, useState } from "react";
 import {
-  ArrowDown,
   ArrowUp,
   ArrowUpRight,
   BookOpen,
   Bot,
-  Check,
-  CheckCheck,
   CheckCircle2,
-  ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   Copy,
@@ -17,12 +11,8 @@ import {
   History,
   Info,
   Layers3,
-  LockKeyhole,
-  Maximize2,
   MessageSquare,
-  Minus,
   MoreHorizontal,
-  PanelRightClose,
   PanelRightOpen,
   Paperclip,
   Plus,
@@ -36,533 +26,36 @@ import {
   Workflow,
   X,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Markdown from "../components/Markdown";
+import { RequestStatus } from "../components/RequestStatus";
 import { Badge, IconButton, Modal, useToast } from "../components/ui";
 import { Toggle } from "../components/ui/Toggle";
+import { EvidencePanel } from "../features/chat/components/EvidencePanel";
+import { FileIcon } from "../features/chat/components/FileIcon";
+import { sendMessageFlow } from "../features/chat/composer";
 import { useConversations } from "../features/chat/useConversations";
 import { useFeedback } from "../features/chat/useFeedback";
-import { sendMessageFlow } from "../features/chat/composer";
-import Markdown from "../components/Markdown";
+import { useAction } from "../hooks/useAction";
 import { apiFetch } from "../lib/api";
-import { useLocalStorage } from "../lib/storage";
-import {
-  answers,
-  identifyAnswer,
-  sourceFor,
-} from "../lib/chat-data";
 import type {
   AnswerKind,
-  Citation,
   Conversation,
-  Message,
   RetrievalTrace,
 } from "../lib/chat-data";
+import { sourceFor } from "../lib/chat-data";
+import { getDataMode } from "../lib/data-mode";
+import { useLocalStorage } from "../lib/storage";
 import "./chat.css";
+export { FileIcon } from "../features/chat/components/FileIcon";
 
 type EvidenceTab = "source" | "retrieval" | "permission";
 const uid = () => crypto.randomUUID();
 const nowTime = () =>
-  new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-export function FileIcon({ type = "pdf" }: { type?: string }) {
-  return (
-    <span className={`file-icon file-icon-${type}`}>
-      <FileText size={19} />
-      <small>{type === "docx" ? "W" : type === "md" ? "MD" : "PDF"}</small>
-    </span>
-  );
-}
-
-function EvidencePanel({
-  kind,
-  sourceIndex,
-  tab,
-  setTab,
-  onClose,
-  retrieval,
-}: {
-  kind: AnswerKind;
-  sourceIndex: number;
-  tab: EvidenceTab;
-  setTab: (tab: EvidenceTab) => void;
-  onClose: () => void;
-  retrieval?: RetrievalTrace;
-}) {
-  const source = sourceFor(kind, sourceIndex === 1);
-  const sourceCount = ["leave", "carry", "apply"].includes(kind) ? 2 : 1;
-  const [page, setPage] = useState(source.page);
-  const [zoom, setZoom] = useState(100);
-  const [expanded, setExpanded] = useState(false);
-  const [versions, setVersions] = useState(false);
-  const [metadata, setMetadata] = useState(true);
-  const stageTime = (retrieval?.stages ?? []).reduce((s, st) => s + st.ms, 0);
-  const totalTime = retrieval
-    ? ((stageTime / 1000).toFixed(1) + " s")
-    : "1.2 s";
-  const steps = retrieval
-    ? [
-        ...retrieval.stages.map((s) => ({
-          title: s.name,
-          description: s.detail,
-          time: `${s.ms} ms`,
-        })),
-        {
-          title: "生成有据可依的回答",
-          description: `选取 ${sourceCount} 份文档构建回答上下文`,
-          time: "服务端完成",
-        },
-      ]
-    : [
-        {
-          title: "身份识别与权限预过滤",
-          description: "租户：知序科技 · 研发部 · 内部 L2",
-          time: "24 ms",
-        },
-        {
-          title: "混合检索",
-          description: "BM25 关键词召回 + 稠密向量召回",
-          time: "186 ms",
-        },
-        {
-          title: "Rerank 重排序",
-          description: "合并 24 个候选，保留 12 个相关片段",
-          time: "152 ms",
-        },
-        {
-          title: "权限二次校验",
-          description: "按当前文档权限复核，全部通过",
-          time: "18 ms",
-        },
-        {
-          title: "生成有据可依的回答",
-          description: `选取 ${sourceCount} 份文档构建回答上下文`,
-          time: "820 ms",
-        },
-      ];
-  const scoreRows: Array<{ title: string; percent: number }> = retrieval
-    ? retrieval.hits.slice(0, 2).map((hit) => ({
-        title: hit.title,
-        percent: Math.round(hit.score * 1000) / 10,
-      }))
-    : (sourceCount === 2
-        ? [sourceFor(kind).title, "人力资源管理手册.docx"]
-        : [source.title]
-      ).map((title, i) => ({
-        title,
-        percent: i ? 94.2 : 98.6,
-      }));
-  useEffect(() => {
-    setPage(source.page);
-    setZoom(100);
-  }, [source.title, source.page]);
-  const paper = (
-    <div
-      className="document-paper"
-      style={{ fontSize: `${(zoom / 100) * 13}px` }}
-    >
-      <div className="paper-org">知序科技 · 内部管理文件</div>
-      <h3>{source.title.replace(/\.[^.]+$/, "")}</h3>
-      <div className="paper-rule" />
-      <h4>
-        {kind === "leave" || kind === "carry" || kind === "apply"
-          ? "第三章　年休假标准"
-          : kind === "expense"
-            ? "第二章　报销材料与审批"
-            : kind === "technical"
-              ? "第一章　接口接入与权限"
-              : kind === "archive"
-                ? "第二章　归档要求"
-                : "第二章　入职与休假管理"}
-      </h4>
-      {page === source.page ? (
-        <>
-          {sourceIndex === 1 ||
-          kind === "onboarding" ||
-          kind === "probation" ? (
-            <>
-              <p>第七条　新员工入职应提交身份、学历、离职证明及银行卡信息。</p>
-              <p>
-                <mark>
-                  累计工作满一年的员工，可依照公司制度享受年休假。入职当年的额度按剩余日历天数折算。
-                </mark>
-              </p>
-              <p>员工应在人事系统中提交申请，并按要求完成工作交接。</p>
-            </>
-          ) : kind === "expense" ? (
-            <>
-              <p>第六条　报销应提供以下完整材料：</p>
-              <p>
-                <mark>费用报销单、合规发票、支付凭证及事前审批记录。</mark>
-              </p>
-              <p>第七条　经部门负责人审核后，提交财务复核。</p>
-            </>
-          ) : kind === "archive" ? (
-            <>
-              <p>
-                <mark>
-                  项目结项后 5
-                  个工作日内，应提交全部最终交付资料，并完成归档审批。
-                </mark>
-              </p>
-              <p>
-                归档资料应按项目名称、阶段及文档类型分类，保留完整版本与权限记录。
-              </p>
-            </>
-          ) : kind === "technical" ? (
-            <>
-              <p>
-                <mark>
-                  所有检索请求应携带用户身份。检索前执行权限过滤，召回后复核访问权限。
-                </mark>
-              </p>
-              <p>混合召回合并关键词和向量结果，经重排序后构建回答上下文。</p>
-            </>
-          ) : (
-            <>
-              <p>
-                第十条　<mark>员工可按累计工作年限享受带薪年休假：</mark>
-              </p>
-              <p className="highlight-lines">
-                <mark>（一）满 1 年不满 10 年的，年休假 5 天；</mark>
-                <br />
-                <mark>（二）满 10 年不满 20 年的，年休假 10 天；</mark>
-                <br />
-                <mark>（三）满 20 年及以上的，年休假 15 天。</mark>
-              </p>
-              <p>
-                第十一条　年休假按自然年计算，一般应在当年内安排使用。因工作需要确需跨年使用的，须经部门负责人批准。
-              </p>
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <p>本页为文档第 {page} 页的演示预览。</p>
-          <p>相关制度适用于企业正式员工，具体事项由对应业务部门解释和执行。</p>
-          <p>请返回第 {source.page} 页查看当前回答引用的原文。</p>
-          <button className="text-button" onClick={() => setPage(source.page)}>
-            返回引用段落 <ArrowUpRight size={13} />
-          </button>
-        </>
-      )}
-      <div className="paper-footer">
-        <span>内部资料 · 请勿外传</span>
-        <span>— {page} —</span>
-      </div>
-    </div>
-  );
-  return (
-    <aside className="evidence-panel">
-      <div className="evidence-tabs" role="tablist" aria-label="证据详情">
-        {[
-          { id: "source", label: "证据原文" },
-          { id: "retrieval", label: "检索过程" },
-          { id: "permission", label: "权限校验" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={tab === t.id ? "active" : ""}
-            onClick={() => setTab(t.id as EvidenceTab)}
-          >
-            {t.label}
-          </button>
-        ))}
-        <IconButton label="收起证据面板" onClick={onClose}>
-          <PanelRightClose size={16} />
-        </IconButton>
-      </div>
-      <div className="evidence-content">
-        {tab === "source" ? (
-          <>
-            <div className="evidence-document">
-              <FileIcon type={source.type} />
-              <div>
-                <h3>{source.title}</h3>
-                <p>
-                  {source.library}
-                  <span>·</span>
-                  {source.version}
-                  <Badge tone="success">已发布</Badge>
-                </p>
-              </div>
-            </div>
-            <div className="evidence-match">
-              <span>
-                <span className="match-dot" />
-                已定位到引用段落
-              </span>
-              <span>相关度 98.6%</span>
-            </div>
-            <div className="document-viewer">
-              <div className="document-toolbar">
-                <div>
-                  <IconButton
-                    label="上一页"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    <ChevronLeft size={15} />
-                  </IconButton>
-                  <span>
-                    {page} <span className="muted">/ {source.pages}</span>
-                  </span>
-                  <IconButton
-                    label="下一页"
-                    disabled={page >= source.pages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <ChevronRight size={15} />
-                  </IconButton>
-                </div>
-                <div>
-                  <IconButton
-                    label="缩小"
-                    disabled={zoom <= 70}
-                    onClick={() => setZoom((z) => z - 10)}
-                  >
-                    <Minus size={13} />
-                  </IconButton>
-                  <span>{zoom}%</span>
-                  <IconButton
-                    label="放大"
-                    disabled={zoom >= 150}
-                    onClick={() => setZoom((z) => z + 10)}
-                  >
-                    <Plus size={13} />
-                  </IconButton>
-                  <IconButton
-                    label="全屏查看原文"
-                    onClick={() => setExpanded(true)}
-                  >
-                    <Maximize2 size={14} />
-                  </IconButton>
-                </div>
-              </div>
-              <div className="paper-scroll">{paper}</div>
-              <div className="viewer-footnote">
-                <span className="highlight-key" />
-                黄色区域为当前回答的引用内容
-              </div>
-            </div>
-            <section className="document-metadata">
-              <button
-                className="metadata-heading"
-                onClick={() => setMetadata(!metadata)}
-              >
-                <span>文档信息</span>
-                <ChevronDown size={15} className={metadata ? "" : "rotated"} />
-              </button>
-              {metadata && (
-                <dl>
-                  <div>
-                    <dt>所属知识库</dt>
-                    <dd>{source.library}</dd>
-                  </div>
-                  <div>
-                    <dt>文档分类</dt>
-                    <dd>企业制度 / {source.category}</dd>
-                  </div>
-                  <div>
-                    <dt>访问权限</dt>
-                    <dd>
-                      <LockKeyhole size={12} /> 部门可见
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>密级</dt>
-                    <dd>
-                      内部 <span className="tiny-neutral">L2</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>当前版本</dt>
-                    <dd>
-                      {source.version}{" "}
-                      <span className="success-text">已发布</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>更新时间</dt>
-                    <dd>2026-11-02 14:20</dd>
-                  </div>
-                </dl>
-              )}
-              <button
-                className="version-link"
-                onClick={() => setVersions(true)}
-              >
-                <History size={14} />
-                查看版本历史<span>3 个版本</span>
-                <ChevronRight size={13} />
-              </button>
-            </section>
-            <div className="evidence-secure">
-              <ShieldCheck size={14} />
-              仅展示你有权限访问的内容
-            </div>
-          </>
-        ) : tab === "retrieval" ? (
-          <>
-            <div className="evidence-section-heading">
-              <Workflow size={19} />
-              <h3>一次回答，完整可追溯</h3>
-            </div>
-            <p className="evidence-description">本次检索流程的模拟记录</p>
-            <div className="retrieval-summary">
-              <div>
-                <strong>
-                  {totalTime}
-                </strong>
-                <span>总耗时</span>
-              </div>
-              <div>
-                <strong>{retrieval?.hits.length ?? 12}</strong>
-                <span>召回片段</span>
-              </div>
-              <div>
-                <strong>{sourceCount}</strong>
-                <span>引用文档</span>
-              </div>
-            </div>
-            <div className="retrieval-timeline">
-              {steps.map((s, i) => (
-                <div className="retrieval-step" key={s.title}>
-                  <span className="step-node">
-                    {i === steps.length - 1 ? (
-                      <Sparkles size={13} />
-                    ) : (
-                      <Check size={12} />
-                    )}
-                  </span>
-                  <div>
-                    <h4>
-                      {s.title}
-                      <span>{s.time}</span>
-                    </h4>
-                    <p>{s.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="retrieval-score">
-              <h4>引用片段相关度</h4>
-              {scoreRows.map((row, i) => (
-                <div key={i}>
-                  <p>
-                    <span>{row.title}</span>
-                    <strong>{row.percent}%</strong>
-                  </p>
-                  <div>
-                    <i style={{ width: `${row.percent}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="permission-result">
-              <span>
-                <ShieldCheck size={30} />
-              </span>
-              <h3>权限校验通过</h3>
-              <p>当前身份可访问本次回答中的全部证据</p>
-              <Badge tone="success">
-                {sourceCount} / {sourceCount} 份文档已授权
-              </Badge>
-            </div>
-            <div className="identity-card">
-              <h4>当前访问身份</h4>
-              <dl>
-                <div>
-                  <dt>用户</dt>
-                  <dd>张三</dd>
-                </div>
-                <div>
-                  <dt>租户</dt>
-                  <dd>知序科技</dd>
-                </div>
-                <div>
-                  <dt>部门 / 角色</dt>
-                  <dd>研发部 / 知识管理员</dd>
-                </div>
-                <div>
-                  <dt>可访问密级</dt>
-                  <dd>公开 L1、内部 L2</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="permission-checks">
-              {[
-                "租户隔离校验通过",
-                "检索前 ACL 范围过滤通过",
-                "召回后二次权限校验通过",
-                "回答上下文权限校验通过",
-              ].map((t) => (
-                <div key={t}>
-                  <CheckCircle2 size={16} />
-                  <span>{t}</span>
-                </div>
-              ))}
-            </div>
-            <div className="info-callout">
-              <Info size={16} />
-              <p>
-                此面板展示企业权限校验流程。演示使用本地数据，真实权限隔离需在服务端检索链路中实施。
-              </p>
-            </div>
-          </>
-        )}
-      </div>
-      {expanded && (
-        <Modal
-          title={`${source.title} · 第 ${page} 页`}
-          wide
-          onClose={() => setExpanded(false)}
-        >
-          <div className="expanded-paper">{paper}</div>
-        </Modal>
-      )}
-      {versions && (
-        <Modal title="文档版本历史" onClose={() => setVersions(false)}>
-          <div className="version-timeline">
-            {[
-              {
-                version: source.version,
-                date: "2026-11-02",
-                text: "更新条款说明，补充审批流程。",
-                current: true,
-              },
-              {
-                version: "v2.0",
-                date: "2026-08-18",
-                text: "统一制度格式，完善部门适用范围。",
-              },
-              {
-                version: "v1.0",
-                date: "2026-03-01",
-                text: "首次发布，建立基础制度。",
-              },
-            ].map((v) => (
-              <div key={v.version}>
-                <span className="version-node" />
-                <div>
-                  <h4>
-                    {v.version}{" "}
-                    {v.current && <Badge tone="success">当前版本</Badge>}
-                    <small>{v.date}</small>
-                  </h4>
-                  <p>{v.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="muted">如需编辑或回滚版本，请前往文档中心。</p>
-        </Modal>
-      )}
-    </aside>
-  );
-}
+  new Date().toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 export default function ChatPage() {
   const {
@@ -572,8 +65,11 @@ export default function ChatPage() {
     setActiveId,
     loading,
     loadSource,
-    addMessage,
+    error,
+    reload,
   } = useConversations();
+  const { run, pending } = useAction();
+  const [sendError, setSendError] = useState("");
   const [input, setInput] = useState("");
   const [scope, setScope] = useState("全部知识库");
   const [citations, setCitations] = useLocalStorage("citations", true);
@@ -625,53 +121,32 @@ export default function ChatPage() {
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
-    apiFetch<{ conversations: Conversation[] }>("/api/conversations").then(
-      (data) => {
-        if (data?.conversations.length) {
-          setConversations(data.conversations);
-          setActiveId(data.conversations[0].id);
-        }
-      },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => {
     if (messages.length > 2)
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
         behavior: "smooth",
       });
   }, [messages.length, busy]);
-  const newConversation = async () => {
-    const data = await apiFetch<{ conversation: Conversation }>(
-      "/api/conversations",
-      { method: "POST", body: JSON.stringify({ title: "新会话" }) },
-    );
-    if (data) {
-      setConversations((prev) => [data.conversation, ...prev]);
-      setActiveId(data.conversation.id);
-    } else {
-      const id = uid();
-      setConversations((prev) => [
-        {
-          id,
-          title: "新会话",
-          time: new Date().toLocaleTimeString("zh-CN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          group: "今天",
-          messages: [],
-        },
-        ...prev,
-      ]);
-      setActiveId(id);
-    }
-    setInput("");
-    setEvidenceOpen(false);
-    setHistoryVisible(false);
-    inputRef.current?.focus();
-  };
+  const newConversation = () =>
+    void run(async () => {
+      const data = await apiFetch<{ conversation: Conversation }>(
+        "/api/conversations",
+        { method: "POST", body: JSON.stringify({ title: "新会话" }) },
+      );
+      const created = data?.conversation ?? {
+        id: uid(),
+        title: "新会话",
+        time: nowTime(),
+        group: "今天",
+        messages: [],
+      };
+      setConversations((prev) => [created, ...prev]);
+      setActiveId(created.id);
+      setInput("");
+      setEvidenceOpen(false);
+      setHistoryVisible(false);
+      inputRef.current?.focus();
+    });
   const selectConversation = (c: Conversation) => {
     setActiveId(c.id);
     setHistoryVisible(false);
@@ -686,28 +161,25 @@ export default function ChatPage() {
   };
   const send = async (question = input) => {
     const trimmed = question.trim();
-    if (!trimmed || busy) return;
-    setInput("");
+    if (!trimmed || busy || pending) return;
     setBusy(true);
-
+    setSendError("");
     const ensureConversation = async () => {
-      const created = await apiFetch<{ conversation: Conversation }>(
+      const data = await apiFetch<{ conversation: Conversation }>(
         "/api/conversations",
         { method: "POST", body: JSON.stringify({ title: trimmed }) },
       );
-      const conversationId = created?.conversation.id || uid();
-      const newConversationEntry: Conversation = {
-        id: conversationId,
-        title: created?.conversation.title || trimmed,
-        time: created?.conversation.time || nowTime(),
-        group: created?.conversation.group || "今天",
+      const created = data?.conversation ?? {
+        id: uid(),
+        title: trimmed,
+        time: nowTime(),
+        group: "今天",
         messages: [],
       };
-      setConversations((prev) => [newConversationEntry, ...prev]);
-      setActiveId(conversationId);
-      return conversationId;
+      setConversations((prev) => [created, ...prev]);
+      setActiveId(created.id);
+      return created.id;
     };
-
     try {
       const result = await sendMessageFlow({
         question: trimmed,
@@ -718,44 +190,64 @@ export default function ChatPage() {
         activeId,
         ensureConversation,
       });
-      const answer = result.answer;
-      if (answer) {
-        addMessage(result.conversationId, [
-          { id: uid(), role: "user", content: trimmed },
-          answer,
-        ]);
-        if (answer.kind && answer.kind !== "unknown") {
-          setSelectedKind(answer.kind);
-          setSourceIndex(0);
-          setActiveRetrieval(answer.retrieval);
-        }
-      }
-      setBusy(false);
-    } catch {
-      const kind = identifyAnswer(
-        trimmed,
-        scope,
-        multiTurn
-          ? [...messages].reverse().find((m) => m.kind)?.kind
-          : undefined,
+      setConversations((previous) =>
+        previous.some((conv) => conv.id === result.conversationId)
+          ? previous.map((conv) =>
+              conv.id === result.conversationId ? result.conversation : conv,
+            )
+          : [result.conversation, ...previous],
       );
-      const fallbackId = activeId || (await ensureConversation());
-      const user: Message = { id: uid(), role: "user", content: trimmed };
-      const fallbackAnswer: Message = {
-        id: uid(),
-        role: "assistant",
-        content: answers[kind],
-        kind,
-        citations,
-      };
-      addMessage(
-        fallbackId,
-        [user, fallbackAnswer],
-        conversation?.messages.length ? conversation.title : trimmed,
-      );
+      setInput("");
+      setActiveRetrieval(result.conversation.messages.at(-1)?.retrieval);
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : "发送失败，请重试");
+    } finally {
       setBusy(false);
     }
   };
+  const deleteConversation = (id: string) =>
+    void run(async () => {
+      await apiFetch(`/api/conversations/${id}`, { method: "DELETE" });
+      setConversations((previous) => previous.filter((conv) => conv.id !== id));
+      setSessionMenu(null);
+      toast("会话已删除", "success");
+    });
+  const clearConversations = () =>
+    void run(async () => {
+      const failed: string[] = [];
+      for (const item of conversations) {
+        try {
+          await apiFetch(`/api/conversations/${item.id}`, { method: "DELETE" });
+          setConversations((previous) =>
+            previous.filter((conv) => conv.id !== item.id),
+          );
+        } catch {
+          failed.push(item.id);
+        }
+      }
+      if (failed.length)
+        throw new Error(
+          `${failed.length} 条会话未删除，请重试；已删除的会话不会重复操作`,
+        );
+      setConfirmClear(false);
+      toast("会话历史已删除", "success");
+    });
+  useEffect(() => {
+    const sync = () => {
+      try {
+        setCitations(
+          JSON.parse(localStorage.getItem("knowledge-hub:citations") ?? "true"),
+        );
+        setMultiTurn(
+          JSON.parse(
+            localStorage.getItem("knowledge-hub:multi-turn") ?? "true",
+          ),
+        );
+      } catch {}
+    };
+    window.addEventListener("knowledge-hub:preferences", sync);
+    return () => window.removeEventListener("knowledge-hub:preferences", sync);
+  }, [setCitations, setMultiTurn]);
   const openEvidence = (
     kind: AnswerKind,
     index = 0,
@@ -774,7 +266,7 @@ export default function ChatPage() {
       : ["报销需要哪些材料？", "新人入职需要准备什么？", "项目文档如何归档？"];
   return (
     <div className={`chat-workspace ${evidenceOpen ? "" : "evidence-hidden"}`}>
-      {loadSource === "offline" && (
+      {loadSource === "demo" && (
         <div className="offline-badge" role="status">
           离线演示 · 正在使用本地数据
         </div>
@@ -785,6 +277,7 @@ export default function ChatPage() {
         <button
           className="btn btn-primary new-conversation"
           onClick={newConversation}
+          disabled={pending || busy}
         >
           <Plus size={18} />
           新建会话
@@ -815,8 +308,9 @@ export default function ChatPage() {
             onChange={(e) => setHistorySearch(e.target.value)}
           />
         )}
+        <RequestStatus loading={loading} error={error} reload={reload} />
         <div className="history-list">
-          {["今天", "昨天", "过去 7 天"].map((group) => {
+          {["今天", "昨天", "过去 7 天", "更早"].map((group) => {
             const filtered = conversations.filter(
               (c) => c.group === group && c.title.includes(historySearch),
             );
@@ -853,17 +347,8 @@ export default function ChatPage() {
                     {sessionMenu === c.id && (
                       <div className="session-menu">
                         <button
-                          onClick={() => {
-                            apiFetch(`/api/conversations/${c.id}`, {
-                              method: "DELETE",
-                            });
-                            setConversations((prev) =>
-                              prev.filter((x) => x.id !== c.id),
-                            );
-                            if (c.id === activeId) setActiveId("");
-                            setSessionMenu(null);
-                            toast("会话已删除");
-                          }}
+                          disabled={pending}
+                          onClick={() => deleteConversation(c.id)}
                         >
                           <Trash2 size={14} />
                           删除会话
@@ -903,6 +388,9 @@ export default function ChatPage() {
         </div>
       </aside>
       <section className="conversation-panel">
+        <div className="capability-note">
+          规则问答体验 · LLM、真实引用定位及身份权限尚未接入
+        </div>
         <div className="chat-toolbar">
           <button
             className="mobile-history-button icon-button"
@@ -975,11 +463,15 @@ export default function ChatPage() {
                         <strong>知序助手</strong>
                         <span>
                           <CheckCircle2 size={11} />
-                          {m.kind === "unknown" ? "检索完成" : "已完成知识检索"}
+                          {getDataMode() === "server"
+                            ? "预置答案 · 未调用模型"
+                            : m.kind === "unknown"
+                              ? "演示检索完成"
+                              : "演示回答"}
                         </span>
                       </div>
                       <Markdown>{m.content}</Markdown>
-                      {m.kind === "leave" && (
+                      {getDataMode() === "demo" && m.kind === "leave" && (
                         <div className="answer-callout">
                           <Info size={16} />
                           <div>
@@ -1002,7 +494,11 @@ export default function ChatPage() {
                         <div className="citation-card">
                           <div className="citation-heading">
                             <BookOpen size={15} />
-                            <strong>引用来源</strong>
+                            <strong>
+                              {getDataMode() === "demo"
+                                ? "演示引用"
+                                : "预置来源（未核验）"}
+                            </strong>
                             <span>
                               {m.sources
                                 ? m.sources.length
@@ -1024,7 +520,12 @@ export default function ChatPage() {
                                 className={`citation-row ${selectedKind === m.kind && sourceIndex === index && evidenceOpen ? "selected" : ""}`}
                                 key={index}
                                 onClick={() =>
-                                  openEvidence(m.kind!, index, "source", m.retrieval)
+                                  openEvidence(
+                                    m.kind!,
+                                    index,
+                                    "source",
+                                    m.retrieval,
+                                  )
                                 }
                               >
                                 <FileIcon type={s.type} />
@@ -1051,11 +552,20 @@ export default function ChatPage() {
                           <IconButton
                             label="回答有帮助"
                             className={
-                              feedback[m.id] === "up" ? "feedback-active" : ""
+                              (feedback[m.id] ?? m.feedback?.rating) === "up"
+                                ? "feedback-active"
+                                : ""
                             }
                             onClick={() => {
-                              recordFeedback(conversation?.id, m.id, "up");
-                              toast("感谢反馈，已在本地记录");
+                              void run(async () => {
+                                await recordFeedback(
+                                  conversation?.id,
+                                  m.id,
+                                  "up",
+                                  m.feedback?.rating,
+                                );
+                                toast("反馈已保存", "success");
+                              });
                             }}
                           >
                             <ThumbsUp size={15} />
@@ -1063,11 +573,20 @@ export default function ChatPage() {
                           <IconButton
                             label="回答无帮助"
                             className={
-                              feedback[m.id] === "down" ? "feedback-active" : ""
+                              (feedback[m.id] ?? m.feedback?.rating) === "down"
+                                ? "feedback-active"
+                                : ""
                             }
                             onClick={() => {
-                              recordFeedback(conversation?.id, m.id, "down");
-                              toast("已记录反馈，我们会持续改进回答");
+                              void run(async () => {
+                                await recordFeedback(
+                                  conversation?.id,
+                                  m.id,
+                                  "down",
+                                  m.feedback?.rating,
+                                );
+                                toast("反馈已保存", "success");
+                              });
                             }}
                           >
                             <ThumbsDown size={15} />
@@ -1105,9 +624,9 @@ export default function ChatPage() {
                         </div>
                         <span className="answer-timing">
                           <Clock3 size={11} />
-                          {m.retrieval
-                            ? `${(m.retrieval.stages.reduce((s, st) => s + st.ms, 0) / 1000).toFixed(1)} s`
-                            : "1.2 s"}
+                          {getDataMode() === "server"
+                            ? "阶段耗时未测量"
+                            : "演示耗时"}
                           <span>·</span>
                           {m.retrieval
                             ? m.retrieval.hits.length
@@ -1167,6 +686,14 @@ export default function ChatPage() {
           )}
         </div>
         <div className="composer-section">
+          {sendError && (
+            <div className="inline-error" role="alert">
+              {sendError}
+              <button className="text-button" onClick={() => void send()}>
+                重试发送
+              </button>
+            </div>
+          )}
           {messages.length > 0 && (
             <div className="suggestion-section">
               <div>
@@ -1272,7 +799,7 @@ export default function ChatPage() {
           </form>
           <div className="composer-note">
             <ShieldCheck size={11} />
-            回答由后端知识服务生成，请结合原文核实<span>服务端检索</span>
+            当前为规则演示答案；引用与权限尚未核验<span>规则检索</span>
           </div>
         </div>
       </section>
@@ -1296,8 +823,11 @@ export default function ChatPage() {
       {confirmClear && (
         <Modal title="清空会话历史" onClose={() => setConfirmClear(false)}>
           <p>
-            将清空此浏览器中保存的全部 {conversations.length}{" "}
-            条会话记录。知识库和文档不受影响。
+            {getDataMode() === "server"
+              ? "将删除服务端当前列表中的"
+              : "将删除本地演示中的"}{" "}
+            {conversations.length}{" "}
+            条会话及消息。删除无法撤销；发生部分失败时可重试。
           </p>
           <div className="modal-actions">
             <button
@@ -1308,17 +838,10 @@ export default function ChatPage() {
             </button>
             <button
               className="btn btn-danger"
-              onClick={() => {
-                conversations.forEach((c) =>
-                  apiFetch(`/api/conversations/${c.id}`, { method: "DELETE" }),
-                );
-                setConversations([]);
-                setActiveId("");
-                setConfirmClear(false);
-                toast("会话历史已清空");
-              }}
+              disabled={pending}
+              onClick={clearConversations}
             >
-              确认清空
+              {pending ? "正在删除…" : "确认删除会话"}
             </button>
           </div>
         </Modal>
